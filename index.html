@@ -208,6 +208,7 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
+            position: relative;
         }
 
         .form-label {
@@ -224,6 +225,33 @@
             border-radius: 8px;
             font-size: 13px;
             outline: none;
+        }
+
+        /* SEARCH AUTOCOMPLETE SUGGESTIONS */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            max-height: 180px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .search-item {
+            padding: 10px 12px;
+            font-size: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .search-item:hover {
+            background-color: #f4f5f7;
         }
 
         .fare-card {
@@ -463,14 +491,18 @@
                 <input type="text" id="passengerName" class="form-input" placeholder="Masukkan nama Anda...">
             </div>
 
+            <!-- SEARCH / PASTE SHARELOK JEMPUT -->
             <div class="form-group">
                 <label class="form-label">Lokasi Penjemputan <span id="pickupLockLabel" style="color:red; font-size:10px;"></span></label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Mencari alamat jemput...">
+                <input type="text" id="pickupLocation" class="form-input" placeholder="Cari tempat / Paste Link Sharelok WA/Maps..." oninput="handleSearchOrPaste('jemput')">
+                <div id="pickupSearchResults" class="search-results"></div>
             </div>
 
+            <!-- SEARCH / PASTE SHARELOK TUJUAN -->
             <div class="form-group">
                 <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Perjalanan)</label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Mencari alamat tujuan...">
+                <input type="text" id="dropoffLocation" class="form-input" placeholder="Cari tempat / Paste Link Sharelok WA/Maps..." oninput="handleSearchOrPaste('tujuan')">
+                <div id="dropoffSearchResults" class="search-results"></div>
             </div>
 
             <div class="fare-card">
@@ -556,6 +588,7 @@
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null; 
     let computedTotalFare = 9000;
+    let searchDebounce = null;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
 
@@ -665,17 +698,14 @@
         }
     }
 
-    // PENGUNCIAN KETAT LOKASI JEMPUT SETELAH DRIVER TERIMA PESANAN
     function updateMarker(type, latlng) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        // TERKUNCI jika order sudah dikonfirmasi driver (bukan null / WAITING lagi)
         const isPickupLocked = (order && order.status !== 'WAITING');
 
         if (type === 'jemput') {
             if (pickupMarker) map.removeLayer(pickupMarker);
-            
-            // Set draggable = false jika isPickupLocked bernilai true
             pickupMarker = L.marker(latlng, {icon: redPinIcon, draggable: !isPickupLocked}).addTo(map);
+            pickupCoords = latlng;
             
             if (!isPickupLocked) {
                 pickupMarker.on('dragend', (e) => {
@@ -686,9 +716,9 @@
                 fetchAddress('jemput', latlng);
             }
         } else {
-            // Marker Tujuan tetap selalu bisa digeser kapanpun
             if (dropoffMarker) map.removeLayer(dropoffMarker);
             dropoffMarker = L.marker(latlng, {icon: finishFlagIcon, draggable: true}).addTo(map);
+            dropoffCoords = latlng;
             dropoffMarker.on('dragend', (e) => {
                 dropoffCoords = e.target.getLatLng();
                 fetchAddress('tujuan', dropoffCoords);
@@ -696,13 +726,68 @@
             });
             fetchAddress('tujuan', latlng);
         }
+        map.setView(latlng, 16);
         calculateFare();
+    }
+
+    // FUNGSI SEARCH ALAMAT AUTOCOMPLETE & PASTE SHARELOK LINK WA/MAPS
+    function handleSearchOrPaste(type) {
+        const inputId = (type === 'jemput') ? 'pickupLocation' : 'dropoffLocation';
+        const resultsId = (type === 'jemput') ? 'pickupSearchResults' : 'dropoffSearchResults';
+        const query = document.getElementById(inputId).value;
+        const container = document.getElementById(resultsId);
+
+        // 1. DETEKSI PASTE LINK SHARELOK GOOGLE MAPS / WA
+        const coordRegex = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
+        const match = query.match(coordRegex);
+
+        if (match) {
+            const lat = parseFloat(match[1]);
+            const lng = parseFloat(match[2]);
+            const newLatLng = L.latLng(lat, lng);
+            
+            updateMarker(type, newLatLng);
+            container.style.display = 'none';
+            alert(`Berhasil membaca titik lokasi dari Link Sharelok!\nKoordinat: ${lat}, ${lng}`);
+            return;
+        }
+
+        // 2. AUTOCOMPLETE PENCARIAN TEMPAT
+        if (query.length < 3) {
+            container.style.display = 'none';
+            return;
+        }
+
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=id&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    container.innerHTML = '';
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'search-item';
+                            div.innerText = item.display_name;
+                            div.onclick = function() {
+                                document.getElementById(inputId).value = item.display_name.split(',').slice(0, 3).join(',');
+                                const selectedLatLng = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
+                                updateMarker(type, selectedLatLng);
+                                container.style.display = 'none';
+                            };
+                            container.appendChild(div);
+                        });
+                        container.style.display = 'block';
+                    } else {
+                        container.style.display = 'none';
+                    }
+                }).catch(() => {});
+        }, 400);
     }
 
     function setPointToCenter(type) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         const isPickupLocked = (order && order.status !== 'WAITING');
-
         const center = map.getCenter();
 
         if (type === 'jemput') { 
@@ -857,7 +942,6 @@
         orderChannel.postMessage({ type: 'STATUS_CHANGE' });
         triggerVibration([500]);
         
-        // RE-RENDER MARKER UNTUK MENGUNCI TITIK JEMPUT BILA DIKONFIRMASI DRIVER
         if (pickupCoords) updateMarker('jemput', pickupCoords);
 
         updateDriverAppUI();
@@ -1000,7 +1084,6 @@
 
         const isLocked = (order.status !== 'WAITING');
 
-        // KUNCI CONTROL JEMPUTAN JIKA BUKAN WAITING
         if (isLocked) {
             btnSetJemput.classList.add('btn-disabled');
             pickupInput.disabled = true;
