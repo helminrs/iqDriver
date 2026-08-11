@@ -23,6 +23,7 @@
             --border-color: #e0e0e0;
             --accent-red: #eb5757;
             --accent-blue: #2f80ed;
+            --accent-orange: #f2994a;
         }
 
         * {
@@ -137,18 +138,20 @@
         }
 
         .status-box {
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .status-online {
-            background-color: #eef7e8;
-            color: #2e7d32;
-            border: 1px solid #c8e6b8;
-        }
+        .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
+        .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
         .location-actions {
             display: grid;
@@ -219,10 +222,6 @@
             box-shadow: 0 4px 10px rgba(140, 198, 63, 0.4);
         }
 
-        .btn-submit:active {
-            background-color: var(--primary-green-hover);
-        }
-
         .order-card-driver {
             border: 1px solid var(--border-color);
             border-radius: 12px;
@@ -234,11 +233,10 @@
             gap: 10px;
         }
 
-        .driver-nav-btn {
-            background-color: var(--accent-blue);
-            color: #fff;
+        .driver-step-btn {
+            width: 100%;
+            padding: 12px;
             border: none;
-            padding: 10px;
             border-radius: 8px;
             font-weight: 700;
             font-size: 13px;
@@ -247,7 +245,20 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            text-decoration: none;
+            color: white;
+        }
+
+        .btn-accept { background-color: var(--accent-blue); }
+        .btn-arrived { background-color: var(--accent-orange); }
+        .btn-trip { background-color: var(--primary-green); color: var(--text-dark); }
+        .btn-finish { background-color: #27ae60; }
+
+        .history-card {
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            background: #fafafa;
         }
     </style>
 </head>
@@ -276,7 +287,7 @@
         <!-- MODE PENUMPANG -->
         <div id="passengerView" style="display: flex; flex-direction: column; gap: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
-                <i class="fa-solid fa-circle"></i> Driver Tunggal Aktif (Siap Menerima Order)
+                <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
             </div>
 
             <div class="location-actions">
@@ -316,13 +327,25 @@
         <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-weight: 700; font-size: 14px;">
-                    <i class="fa-solid fa-list-check"></i> Radar Orderan Masuk Realtime
+                    <i class="fa-solid fa-list-check"></i> Radar & Proses Orderan
                 </span>
-                <span style="background:#8cc63f; padding:3px 8px; border-radius:10px; font-size:11px; font-weight:bold;">ONLINE</span>
+                <button onclick="toggleGpsSharing()" id="btnGpsShare" style="background:#2f80ed; color:white; border:none; padding:4px 10px; border-radius:12px; font-weight:bold; font-size:11px;">
+                    <i class="fa-solid fa-location-arrow"></i> Bagikan Lokasi GPS
+                </button>
             </div>
 
             <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 10px;">
                 <p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>
+            </div>
+
+            <!-- TAB RIWAYAT DRIVER -->
+            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <span style="font-weight: 700; font-size: 13px; color:#555;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Order Selesai
+                </span>
+                <div id="historyContainer" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+                    <p style="font-size: 11px; color: #a0a0a0;">Belum ada riwayat orderan.</p>
+                </div>
             </div>
         </div>
     </main>
@@ -330,23 +353,27 @@
 
 <script>
     let map;
-    let pickupMarker = null, dropoffMarker = null;
+    let pickupMarker = null, dropoffMarker = null, liveDriverMarker = null;
     let pickupCoords = null, dropoffCoords = null;
-    let userCurrentLat = -7.02443, userCurrentLng = 107.58556; // Default
+    let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let computedFare = 9000;
-    
-    // Channel Komunikasi Realtime Antar Tab/Mode
-    const orderChannel = new BroadcastChannel('iqbike_orders');
+    let watchGpsId = null;
 
-    // Icon Custom
+    const orderChannel = new BroadcastChannel('iqbike_system');
+
     const redPinIcon = L.divIcon({
-        html: '<i class="fa-solid fa-location-dot" style="font-size:32px; color:#eb5757; drop-shadow:0 2px 4px rgba(0,0,0,0.3);"></i>',
+        html: '<i class="fa-solid fa-location-dot" style="font-size:32px; color:#eb5757;"></i>',
         iconSize: [32, 32], iconAnchor: [16, 32], className: 'custom-pin'
     });
 
     const finishFlagIcon = L.divIcon({
-        html: '<i class="fa-solid fa-flag-checkered" style="font-size:24px; color:#111111; background:#ffffff; padding:4px; border-radius:50%; border:2px solid #111;"></i>',
+        html: '<i class="fa-solid fa-flag-checkered" style="font-size:24px; color:#111; background:#fff; padding:4px; border-radius:50%; border:2px solid #111;"></i>',
         iconSize: [32, 32], iconAnchor: [16, 16], className: 'custom-flag'
+    });
+
+    const driverMotorIcon = L.divIcon({
+        html: '<i class="fa-solid fa-motorcycle" style="font-size:18px; color:#fff; background:#8cc63f; padding:6px; border-radius:50%; border:2px solid #121212; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></i>',
+        iconSize: [32, 32], iconAnchor: [16, 16], className: 'driver-motor-icon'
     });
 
     function initMap() {
@@ -354,12 +381,11 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         map.on('move', checkLocationButtonState);
-
         centerToMyLocation();
-        loadOrdersToDriverUI();
+        updateDriverAppUI();
+        updatePassengerAppUI();
     }
 
-    // 1. Dapatkan Lokasi GPS Presisi
     function centerToMyLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
@@ -369,24 +395,18 @@
                 const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
                 map.setView(currentLatLng, 16);
 
-                // Set Default Titik Jemput
-                pickupCoords = currentLatLng;
-                updateMarker('jemput', currentLatLng);
-
-                // Set Default Titik Tujuan (+300 meter dari jemput)
+                if (!pickupCoords) {
+                    pickupCoords = currentLatLng;
+                    updateMarker('jemput', currentLatLng);
+                }
                 if (!dropoffCoords) {
                     dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
                     updateMarker('tujuan', dropoffCoords);
                 }
 
                 checkLocationButtonState();
-            }, () => {
-                // Fallback jika GPS tidak aktif
-                setupDefaultMarkers();
-            }, { enableHighAccuracy: true });
-        } else {
-            setupDefaultMarkers();
-        }
+            }, () => { setupDefaultMarkers(); }, { enableHighAccuracy: true });
+        } else { setupDefaultMarkers(); }
     }
 
     function setupDefaultMarkers() {
@@ -396,59 +416,43 @@
         updateMarker('tujuan', dropoffCoords);
     }
 
-    // 2. Pasang Pin yang BISA DIGESER MANUALLY (Draggable)
     function updateMarker(type, latlng) {
         if (type === 'jemput') {
             if (pickupMarker) map.removeLayer(pickupMarker);
             pickupMarker = L.marker(latlng, {icon: redPinIcon, draggable: true}).addTo(map);
-            
-            // Event ketika Pin Jemput Digeser Pakai Jari
-            pickupMarker.on('dragend', function(e) {
+            pickupMarker.on('dragend', (e) => {
                 pickupCoords = e.target.getLatLng();
                 fetchAddress('jemput', pickupCoords);
                 calculateFare();
             });
-
             fetchAddress('jemput', latlng);
         } else {
             if (dropoffMarker) map.removeLayer(dropoffMarker);
             dropoffMarker = L.marker(latlng, {icon: finishFlagIcon, draggable: true}).addTo(map);
-            
-            // Event ketika Pin Tujuan Digeser Pakai Jari
-            dropoffMarker.on('dragend', function(e) {
+            dropoffMarker.on('dragend', (e) => {
                 dropoffCoords = e.target.getLatLng();
                 fetchAddress('tujuan', dropoffCoords);
                 calculateFare();
             });
-
             fetchAddress('tujuan', latlng);
         }
-
         calculateFare();
     }
 
-    // Set Pin Sesuai Titik Tengah Peta Saat Ini
     function setPointToCenter(type) {
         const center = map.getCenter();
-        if (type === 'jemput') {
-            pickupCoords = center;
-            updateMarker('jemput', center);
-        } else {
-            dropoffCoords = center;
-            updateMarker('tujuan', center);
-        }
+        if (type === 'jemput') { pickupCoords = center; updateMarker('jemput', center); }
+        else { dropoffCoords = center; updateMarker('tujuan', center); }
     }
 
-    // 3. Konversi Koordinat Jadi Nama Alamat Asli (Reverse Geocoding)
     function fetchAddress(type, latlng) {
         const inputId = (type === 'jemput') ? 'pickupLocation' : 'dropoffLocation';
-        document.getElementById(inputId).value = "Mencari nama jalan...";
+        document.getElementById(inputId).value = "Mencari alamat...";
 
         fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`)
             .then(res => res.json())
             .then(data => {
                 if (data && data.display_name) {
-                    // Ambil ringkasan nama jalan/daerah
                     const address = data.display_name.split(',').slice(0, 3).join(',');
                     document.getElementById(inputId).value = address;
                 } else {
@@ -460,34 +464,25 @@
             });
     }
 
-    // 4. Tombol Lokasi Saya Dinamis (Berubah Biru)
     function checkLocationButtonState() {
         const btn = document.getElementById('btnMyLocation');
         const center = map.getCenter();
         const dist = map.distance(center, L.latLng(userCurrentLat, userCurrentLng));
-
-        if (dist < 30) {
-            btn.classList.add('active-blue');
-        } else {
-            btn.classList.remove('active-blue');
-        }
+        if (dist < 30) btn.classList.add('active-blue');
+        else btn.classList.remove('active-blue');
     }
 
-    // 5. Hitung Ongkos Sesuai Aturan Presisi
     function calculateFare() {
         if (pickupCoords && dropoffCoords) {
             const distanceInMeters = map.distance(pickupCoords, dropoffCoords);
             let fare = 0;
 
-            if (distanceInMeters <= 3600) {
-                fare = 9000; // Minimum 1m - 3.6km
-            } else {
+            if (distanceInMeters <= 3600) { fare = 9000; }
+            else {
                 const extraMeters = distanceInMeters - 3600;
                 fare = 9000;
-
                 const fullKm = Math.floor(extraMeters / 1000);
                 fare += fullKm * 2500;
-
                 const remainderMeters = Math.round(extraMeters % 1000);
 
                 if (remainderMeters >= 1 && remainderMeters <= 199) fare += 500;
@@ -498,7 +493,6 @@
             }
 
             computedFare = fare;
-
             let distanceDisplay = (distanceInMeters < 1000) 
                 ? `${Math.round(distanceInMeters)} meter` 
                 : `${(distanceInMeters / 1000).toFixed(2)} km`;
@@ -507,18 +501,48 @@
         }
     }
 
-    // 6. PENUMPANG: Kirim Orderan Ke Radar Driver
+    // 1. BAGIKAN GPS LOKASI DRIVER REAL-TIME
+    function toggleGpsSharing() {
+        const btn = document.getElementById('btnGpsShare');
+        if (!watchGpsId) {
+            if (navigator.geolocation) {
+                watchGpsId = navigator.geolocation.watchPosition((pos) => {
+                    const driverPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    localStorage.setItem('iqbike_driver_pos', JSON.stringify(driverPos));
+                    orderChannel.postMessage({ type: 'DRIVER_POS', pos: driverPos });
+                    updateDriverLiveMarker(driverPos);
+                }, null, { enableHighAccuracy: true });
+
+                btn.style.background = '#eb5757';
+                btn.innerHTML = `<i class="fa-solid fa-stop"></i> Matikan GPS`;
+            }
+        } else {
+            navigator.geolocation.clearWatch(watchGpsId);
+            watchGpsId = null;
+            btn.style.background = '#2f80ed';
+            btn.innerHTML = `<i class="fa-solid fa-location-arrow"></i> Bagikan Lokasi GPS`;
+        }
+    }
+
+    function updateDriverLiveMarker(pos) {
+        if (!liveDriverMarker) {
+            liveDriverMarker = L.marker([pos.lat, pos.lng], {icon: driverMotorIcon}).addTo(map);
+        } else {
+            liveDriverMarker.setLatLng([pos.lat, pos.lng]);
+        }
+    }
+
+    // 2. TAHAP ORDERAN & ALUR KERJA
     function sendOrder() {
         const name = document.getElementById('passengerName').value || 'Penumpang';
         const pickup = document.getElementById('pickupLocation').value;
         const dropoff = document.getElementById('dropoffLocation').value;
 
         if (!pickup || !dropoff) {
-            alert("Harap tentukan lokasi jemput dan tujuan terlebih dahulu!");
-            return;
+            alert("Harap tentukan lokasi jemput dan tujuan!"); return;
         }
 
-        const newOrder = {
+        const activeOrder = {
             id: Date.now(),
             passengerName: name,
             pickup: pickup,
@@ -528,62 +552,159 @@
             dropoffLat: dropoffCoords.lat,
             dropoffLng: dropoffCoords.lng,
             fare: computedFare,
+            status: 'WAITING', // WAITING -> HEADING_PICKUP -> ARRIVED -> ON_TRIP -> FINISHED
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        // Simpan ke Storage Lokal
-        let existingOrders = JSON.parse(localStorage.getItem('iqbike_orders') || '[]');
-        existingOrders.unshift(newOrder);
-        localStorage.setItem('iqbike_orders', JSON.stringify(existingOrders));
-
-        // Kirim Sinyal Realtime
-        orderChannel.postMessage(newOrder);
-
-        alert("Orderan Berhasil Dikirim! Silakan Buka Tab 'Driver' Untuk Melihat Radar Masuk.");
-        
-        // Buka WA sebagai cadangan notifikasi
-        const textWA = `Orderan Baru IqBike:%0ANama: ${name}%0AJemput: ${pickup}%0ATujuan: ${dropoff}%0AOngkos: Rp ${computedFare.toLocaleString('id-ID')}`;
-        window.open(`https://wa.me/6281234567890?text=${textWA}`, '_blank');
-
-        loadOrdersToDriverUI();
+        localStorage.setItem('iqbike_active_order', JSON.stringify(activeOrder));
+        orderChannel.postMessage({ type: 'NEW_ORDER' });
+        alert("Orderan dikirim ke Radar Driver!");
+        updatePassengerAppUI();
+        updateDriverAppUI();
     }
 
-    // 7. DRIVER: Tampilkan Orderan Di Radar
-    function loadOrdersToDriverUI() {
-        const container = document.getElementById('orderListContainer');
-        const orders = JSON.parse(localStorage.getItem('iqbike_orders') || '[]');
+    function setOrderStatus(newStatus) {
+        let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        if (!order) return;
 
-        if (orders.length === 0) {
+        order.status = newStatus;
+        localStorage.setItem('iqbike_active_order', JSON.stringify(order));
+        orderChannel.postMessage({ type: 'STATUS_CHANGE', status: newStatus });
+
+        // Alur Otomatis Buka Google Maps
+        if (newStatus === 'HEADING_PICKUP') {
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.pickupLat},${order.pickupLng}&travelmode=bicycling`;
+            window.open(gmapsUrl, '_blank');
+        } else if (newStatus === 'ON_TRIP') {
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.dropoffLat},${order.dropoffLng}&travelmode=bicycling`;
+            window.open(gmapsUrl, '_blank');
+        } else if (newStatus === 'FINISHED') {
+            // Simpan Ke Riwayat
+            let history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
+            history.unshift(order);
+            localStorage.setItem('iqbike_history', JSON.stringify(history));
+            localStorage.removeItem('iqbike_active_order');
+            alert("Orderan Selesai! Tersimpan di Riwayat.");
+        }
+
+        updateDriverAppUI();
+        updatePassengerAppUI();
+    }
+
+    // 3. UI MODE PENUMPANG
+    function updatePassengerAppUI() {
+        const statusBox = document.getElementById('driverStatusBox');
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        if (!order) {
+            statusBox.className = "status-box status-online";
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Tunggal Aktif (Siap Menerima Order)`;
+            return;
+        }
+
+        if (order.status === 'WAITING') {
+            statusBox.className = "status-box status-process";
+            statusBox.innerHTML = `<i class="fa-solid fa-clock"></i> Menunggu Konfirmasi Driver...`;
+        } else if (order.status === 'HEADING_PICKUP') {
+            statusBox.className = "status-box status-process";
+            statusBox.innerHTML = `<i class="fa-solid fa-motorcycle"></i> Driver Sedang Menuju Lokasi Jemput!`;
+        } else if (order.status === 'ARRIVED') {
+            statusBox.className = "status-box status-arrived";
+            statusBox.innerHTML = `<i class="fa-solid fa-location-dot"></i> Driver Telah Tiba di Titik Jemput!`;
+        } else if (order.status === 'ON_TRIP') {
+            statusBox.className = "status-box status-process";
+            statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Dalam Perjalanan Menuju Tujuan...`;
+        }
+    }
+
+    // 4. UI MODE DRIVER
+    function updateDriverAppUI() {
+        const container = document.getElementById('orderListContainer');
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        if (!order) {
             container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>';
+            renderHistory();
             return;
         }
 
         container.innerHTML = '';
-        orders.forEach(item => {
-            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${item.pickupLat},${item.pickupLng}&destination=${item.dropoffLat},${item.dropoffLng}&travelmode=bicycling`;
+        const card = document.createElement('div');
+        card.className = 'order-card-driver';
 
-            const card = document.createElement('div');
-            card.className = 'order-card-driver';
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; font-weight:700;">
-                    <span><i class="fa-solid fa-user"></i> ${item.passengerName} <small style="color:#888; font-weight:normal;">(${item.time})</small></span>
-                    <span style="color: var(--primary-green-hover); font-size:15px;">Rp ${item.fare.toLocaleString('id-ID')}</span>
+        let actionButtonHTML = '';
+        if (order.status === 'WAITING') {
+            actionButtonHTML = `
+                <button class="driver-step-btn btn-accept" onclick="setOrderStatus('HEADING_PICKUP')">
+                    <i class="fa-solid fa-route"></i> Terima Order & Navigasi Jemput
+                </button>`;
+        } else if (order.status === 'HEADING_PICKUP') {
+            actionButtonHTML = `
+                <button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')">
+                    <i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Titik Jemput
+                </button>`;
+        } else if (order.status === 'ARRIVED') {
+            actionButtonHTML = `
+                <button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')">
+                    <i class="fa-solid fa-motorcycle"></i> Berangkat (Navigasi Antar)
+                </button>`;
+        } else if (order.status === 'ON_TRIP') {
+            actionButtonHTML = `
+                <button class="driver-step-btn btn-finish" onclick="setOrderStatus('FINISHED')">
+                    <i class="fa-solid fa-circle-check"></i> Orderan Selesai
+                </button>`;
+        }
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-weight:700;">
+                <span><i class="fa-solid fa-user"></i> ${order.passengerName} (${order.time})</span>
+                <span style="color: var(--primary-green-hover); font-size:15px;">Rp ${order.fare.toLocaleString('id-ID')}</span>
+            </div>
+            <div style="font-size: 12px; color: #444; display:flex; flex-direction:column; gap:6px; background:#f9f9f9; padding:8px; border-radius:6px;">
+                <p><strong><i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Jemput:</strong> ${order.pickup}</p>
+                <p><strong><i class="fa-solid fa-flag-checkered"></i> Antar:</strong> ${order.dropoff}</p>
+            </div>
+            ${actionButtonHTML}
+        `;
+        container.appendChild(card);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const historyContainer = document.getElementById('historyContainer');
+        const history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
+
+        if (history.length === 0) {
+            historyContainer.innerHTML = '<p style="font-size: 11px; color: #a0a0a0;">Belum ada riwayat orderan.</p>';
+            return;
+        }
+
+        historyContainer.innerHTML = '';
+        history.forEach(item => {
+            const hCard = document.createElement('div');
+            hCard.className = 'history-card';
+            hCard.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                    <span>${item.passengerName}</span>
+                    <span style="color:#27ae60;">Rp ${item.fare.toLocaleString('id-ID')}</span>
                 </div>
-                <div style="font-size: 12px; color: #444; display:flex; flex-direction:column; gap:6px; background:#f9f9f9; padding:8px; border-radius:6px;">
-                    <p><strong><i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Jemput:</strong> ${item.pickup}</p>
-                    <p><strong><i class="fa-solid fa-flag-checkered"></i> Antar:</strong> ${item.dropoff}</p>
+                <div style="color:#666; margin-top:4px;">
+                    <div>Jemput: ${item.pickup}</div>
+                    <div>Tujuan: ${item.dropoff}</div>
                 </div>
-                <a href="${gmapsUrl}" target="_blank" class="driver-nav-btn">
-                    <i class="fa-solid fa-route"></i> Navigasi Rute Google Maps
-                </a>
             `;
-            container.appendChild(card);
+            historyContainer.appendChild(hCard);
         });
     }
 
-    // Dengarkan orderan baru secara realtime
-    orderChannel.onmessage = function() {
-        loadOrdersToDriverUI();
+    // Synchronize Realtime Event Channel
+    orderChannel.onmessage = function(e) {
+        if (e.data.type === 'DRIVER_POS') {
+            updateDriverLiveMarker(e.data.pos);
+        } else {
+            updatePassengerAppUI();
+            updateDriverAppUI();
+        }
     };
 
     function switchMode(mode) {
@@ -597,12 +718,13 @@
             dView.style.display = 'flex';
             btnP.classList.remove('active');
             btnD.classList.add('active');
-            loadOrdersToDriverUI();
+            updateDriverAppUI();
         } else {
             pView.style.display = 'flex';
             dView.style.display = 'none';
             btnP.classList.add('active');
             btnD.classList.remove('active');
+            updatePassengerAppUI();
         }
     }
 
