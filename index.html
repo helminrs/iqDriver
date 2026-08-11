@@ -1,4 +1,381 @@
-// 1. Set Default Lokasi Jemput Presisi Sesuai GPS HP saat Aplikasi Dibuka
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IqBike - Ojeg Online Realtime</title>
+    
+    <!-- FontAwesome Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --primary-green: #8cc63f;
+            --primary-green-hover: #7ab332;
+            --text-light: #ffffff;
+            --text-dark: #222222;
+            --bg-body: #f4f5f7;
+            --border-color: #e0e0e0;
+            --accent-red: #eb5757;
+            --accent-blue: #2f80ed;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mode-toggle {
+            background-color: #2a2a2a;
+            border-radius: 20px;
+            padding: 3px;
+            display: flex;
+            gap: 2px;
+        }
+
+        .toggle-btn {
+            border: none;
+            background: transparent;
+            color: #888;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 16px;
+            cursor: pointer;
+        }
+
+        .toggle-btn.active {
+            background-color: var(--primary-green);
+            color: var(--text-dark);
+        }
+
+        .map-wrapper {
+            position: relative;
+            width: 100%;
+            height: 260px;
+            background-color: #e5e3df;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Tombol Lokasi Saya Dinamis (Google Maps Style) */
+        .btn-my-location {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 42px;
+            height: 42px;
+            background-color: #ffffff;
+            color: var(--accent-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-my-location.active-blue {
+            background-color: var(--accent-blue) !important;
+            color: #ffffff !important;
+        }
+
+        .content-area {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .status-box {
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .status-online {
+            background-color: #eef7e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6b8;
+        }
+
+        .status-offline {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .location-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-action {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .fare-card {
+            background: #f8f9fa;
+            border: 1px dashed var(--primary-green);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-green);
+            color: var(--text-dark);
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(140, 198, 63, 0.4);
+        }
+
+        /* Order Card di Layar Driver */
+        .order-card-driver {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .driver-nav-btn {
+            background-color: var(--accent-blue);
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="header">
+        <div class="brand-title">
+            <i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i>
+            <span>IqBike</span>
+        </div>
+        <div class="mode-toggle">
+            <button id="btnPassenger" class="toggle-btn active" onclick="switchMode('penumpang')">Penumpang</button>
+            <button id="btnDriver" class="toggle-btn" onclick="switchMode('driver')">Driver</button>
+        </div>
+    </header>
+
+    <div class="map-wrapper">
+        <div id="map"></div>
+        <!-- Tombol Lokasi Saya -->
+        <button id="btnMyLocation" class="btn-my-location" onclick="centerToMyLocation()">
+            <i class="fa-solid fa-crosshairs fa-lg"></i>
+        </button>
+    </div>
+
+    <main class="content-area">
+        <!-- MODE PENUMPANG -->
+        <div id="passengerView" style="display: flex; flex-direction: column; gap: 12px;">
+            <div id="driverStatusBox" class="status-box status-offline">
+                <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
+            </div>
+
+            <div class="location-actions">
+                <button class="btn-action" onclick="setPoint('jemput')">
+                    <i class="fa-solid fa-map-pin" style="color: var(--accent-red);"></i> Set JEMPUT
+                </button>
+                <button class="btn-action" onclick="setPoint('tujuan')">
+                    <i class="fa-solid fa-flag-checkered" style="color: #333;"></i> Set TUJUAN
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nama Penumpang</label>
+                <input type="text" id="passengerName" class="form-input" placeholder="Masukkan nama Anda...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Lokasi Penjemputan</label>
+                <input type="text" id="pickupLocation" class="form-input" readonly placeholder="Klik 'Set JEMPUT' di peta">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Lokasi Tujuan</label>
+                <input type="text" id="dropoffLocation" class="form-input" readonly placeholder="Klik 'Set TUJUAN' di peta">
+            </div>
+
+            <div class="fare-card">
+                Estimasi Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 16px;">Rp 0</span>
+            </div>
+
+            <button class="btn-submit" onclick="sendOrder()">
+                <i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver
+            </button>
+        </div>
+
+        <!-- MODE DRIVER -->
+        <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight: 700; font-size: 14px;">
+                    <i class="fa-solid fa-list-check"></i> Radar Orderan Masuk Realtime
+                </span>
+                <button onclick="toggleDriverOnline()" id="btnOnlineToggle" style="padding: 4px 10px; border-radius: 12px; border:none; background:#8cc63f; font-weight:700; font-size:11px;">ONLINE</button>
+            </div>
+
+            <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                <p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // Konfigurasi Database Firebase
+    const firebaseConfig = {
+        databaseURL: "https://iqdriver-default-rtdb.firebaseio.com"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let map;
+    let pickupMarker = null, dropoffMarker = null;
+    let pickupCoords = null, dropoffCoords = null;
+    let userCurrentLat = null, userCurrentLng = null;
+    let computedFare = 0;
+    let isDriverOnline = true;
+
+    // Icon Custom (Merah untuk Jemput, Bendera Finish untuk Tujuan)
+    const redPinIcon = L.divIcon({
+        html: '<i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i>',
+        iconSize: [30, 30], iconAnchor: [15, 30], className: 'custom-pin'
+    });
+
+    const finishFlagIcon = L.divIcon({
+        html: '<i class="fa-solid fa-flag-checkered" style="font-size:26px; color:#111111; background:#ffffff; padding:4px; border-radius:50%; border:2px solid #111;"></i>',
+        iconSize: [30, 30], iconAnchor: [15, 15], className: 'custom-flag'
+    });
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([-7.3686, 108.5332], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        map.on('move', checkLocationButtonState);
+
+        centerToMyLocation();
+        listenToDriverLocation();
+        listenToOrdersForDriver();
+    }
+
+    // 1. Set Default Lokasi Presisi GPS + Default Tujuan Sekitar GPS
     function centerToMyLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
@@ -16,7 +393,7 @@
                 if (pickupMarker) map.removeLayer(pickupMarker);
                 pickupMarker = L.marker(currentLatLng, {icon: redPinIcon}).addTo(map);
 
-                // Jika titik tujuan belum di-set, buat default tujuan di sekitaran lokasi GPS (misal +0.005 derajat offset)
+                // Buat default TUJUAN di sekitaran lokasi GPS jika belum di-set
                 if (!dropoffCoords) {
                     const defaultDropoffLat = userCurrentLat + 0.005;
                     const defaultDropoffLng = userCurrentLng + 0.005;
@@ -27,38 +404,70 @@
                     dropoffMarker = L.marker(dropoffCoords, {icon: finishFlagIcon}).addTo(map);
                 }
 
-                // Hitung ulang argo secara otomatis
                 calculateFare();
                 checkLocationButtonState();
             }, (err) => {
                 alert("Gagal mengambil titik GPS presisi. Pastikan akses lokasi di-izinkan.");
             }, {
-                enableHighAccuracy: true // Memastikan akurasi tinggi GPS HP
+                enableHighAccuracy: true
             });
         }
     }
 
-    // 2. Logika Perhitungan Argo / Ongkos Presisi Sesuai Rentang Meter
+    // Ubah Warna Tombol Lokasi Saya Jadi Biru Saat Berada di Posisi GPS
+    function checkLocationButtonState() {
+        const btn = document.getElementById('btnMyLocation');
+        if (!userCurrentLat || !userCurrentLng) return;
+
+        const center = map.getCenter();
+        const dist = map.distance(center, L.latLng(userCurrentLat, userCurrentLng));
+
+        if (dist < 30) {
+            btn.classList.add('active-blue');
+        } else {
+            btn.classList.remove('active-blue');
+        }
+    }
+
+    // 2. Set Manual Titik Jemput / Tujuan Menggunakan Peta
+    function setPoint(type) {
+        const center = map.getCenter();
+        
+        if (type === 'jemput') {
+            pickupCoords = center;
+            document.getElementById('pickupLocation').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
+            
+            if (pickupMarker) map.removeLayer(pickupMarker);
+            pickupMarker = L.marker([center.lat, center.lng], {icon: redPinIcon}).addTo(map);
+        } else {
+            dropoffCoords = center;
+            document.getElementById('dropoffLocation').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
+            
+            if (dropoffMarker) map.removeLayer(dropoffMarker);
+            dropoffMarker = L.marker([center.lat, center.lng], {icon: finishFlagIcon}).addTo(map);
+        }
+
+        calculateFare();
+    }
+
+    // 3. Perhitungan Argo Presisi Sesuai Aturan Jarak & Pecahan Meter
     function calculateFare() {
         if (pickupCoords && dropoffCoords) {
-            const distanceInMeters = map.distance(pickupCoords, dropoffCoords); // Jarak dalam meter
+            const distanceInMeters = map.distance(pickupCoords, dropoffCoords);
             let fare = 0;
 
             if (distanceInMeters <= 3600) {
                 // Minimum Rp 9.000 untuk jarak 1m - 3.6km (3600m)
                 fare = 9000;
             } else {
-                // Jarak di atas 3,6 km (3600 meter)
                 const extraMeters = distanceInMeters - 3600;
-                
-                // Minimum dasar Rp 9.000
                 fare = 9000;
 
                 // Hitung km utuh di atas 3,6 km
                 const fullKm = Math.floor(extraMeters / 1000);
                 fare += fullKm * 2500;
 
-                // Hitung sisa meter (modulus 1000m) berdasarkan aturan pecahan
+                // Hitung sisa meter (modulus 1000m) berdasarkan aturan rentang
                 const remainderMeters = Math.round(extraMeters % 1000);
 
                 if (remainderMeters >= 1 && remainderMeters <= 199) {
@@ -76,7 +485,6 @@
 
             computedFare = fare;
 
-            // Format Tampilan Jarak (m / km)
             let distanceDisplay = "";
             if (distanceInMeters < 1000) {
                 distanceDisplay = `${Math.round(distanceInMeters)} meter`;
@@ -87,3 +495,118 @@
             document.getElementById('fareText').innerText = `Rp ${computedFare.toLocaleString('id-ID')} (${distanceDisplay})`;
         }
     }
+
+    // 4. Kirim Orderan Ke Firebase Realtime Database + WA
+    function sendOrder() {
+        const name = document.getElementById('passengerName').value;
+        const pickup = document.getElementById('pickupLocation').value;
+        const dropoff = document.getElementById('dropoffLocation').value;
+
+        if (!name || !pickup || !dropoff) {
+            alert("Harap isi Nama Penumpang, Titik Jemput, dan Titik Tujuan!");
+            return;
+        }
+
+        const orderData = {
+            passengerName: name,
+            pickup: pickup,
+            dropoff: dropoff,
+            pickupLat: pickupCoords.lat,
+            pickupLng: pickupCoords.lng,
+            dropoffLat: dropoffCoords.lat,
+            dropoffLng: dropoffCoords.lng,
+            fare: computedFare,
+            timestamp: Date.now()
+        };
+
+        db.ref('orders').push(orderData).then(() => {
+            alert("Orderan berhasil dikirim ke Radar Driver!");
+            
+            const text = `Orderan Baru IqBike:%0ANama: ${name}%0AJemput: https://www.google.com/maps?q=${pickup}%0ATujuan: https://www.google.com/maps?q=${dropoff}%0AOngkos: Rp ${computedFare}`;
+            window.open(`https://wa.me/6281234567890?text=${text}`, '_blank');
+        });
+    }
+
+    // 5. Driver Membaca Radar Orderan Realtime
+    function listenToOrdersForDriver() {
+        db.ref('orders').on('value', (snapshot) => {
+            const container = document.getElementById('orderListContainer');
+            container.innerHTML = '';
+            
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).reverse().forEach(key => {
+                    const item = data[key];
+                    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${item.pickupLat},${item.pickupLng}&destination=${item.dropoffLat},${item.dropoffLng}&travelmode=bicycling`;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'order-card-driver';
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; font-weight:700;">
+                            <span><i class="fa-solid fa-user"></i> ${item.passengerName}</span>
+                            <span style="color: var(--primary-green-hover);">Rp ${item.fare.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #555; display:flex; flex-direction:column; gap:4px;">
+                            <p><strong><i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Jemput:</strong> ${item.pickup}</p>
+                            <p><strong><i class="fa-solid fa-flag-checkered"></i> Tujuan:</strong> ${item.dropoff}</p>
+                        </div>
+                        <a href="${gmapsUrl}" target="_blank" class="driver-nav-btn">
+                            <i class="fa-solid fa-route"></i> Navigasi Google Maps
+                        </a>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>';
+            }
+        });
+    }
+
+    // Pantau Status Online Driver
+    function listenToDriverLocation() {
+        db.ref('driver_status').on('value', (snapshot) => {
+            const statusBox = document.getElementById('driverStatusBox');
+            const data = snapshot.val();
+            if (data && data.isOnline) {
+                statusBox.className = "status-box status-online";
+                statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Tunggal Aktif (Sekitar Anda)`;
+            } else {
+                statusBox.className = "status-box status-offline";
+                statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Sedang Offline`;
+            }
+        });
+    }
+
+    function toggleDriverOnline() {
+        isDriverOnline = !isDriverOnline;
+        const btn = document.getElementById('btnOnlineToggle');
+        btn.innerText = isDriverOnline ? 'ONLINE' : 'OFFLINE';
+        btn.style.background = isDriverOnline ? '#8cc63f' : '#eb5757';
+        
+        db.ref('driver_status').set({ isOnline: isDriverOnline });
+    }
+
+    function switchMode(mode) {
+        const pView = document.getElementById('passengerView');
+        const dView = document.getElementById('driverView');
+        const btnP = document.getElementById('btnPassenger');
+        const btnD = document.getElementById('btnDriver');
+
+        if (mode === 'driver') {
+            pView.style.display = 'none';
+            dView.style.display = 'flex';
+            btnP.classList.remove('active');
+            btnD.classList.add('active');
+        } else {
+            pView.style.display = 'flex';
+            dView.style.display = 'none';
+            btnP.classList.add('active');
+            btnD.classList.remove('active');
+        }
+    }
+
+    window.onload = initMap;
+</script>
+
+</body>
+</html>
