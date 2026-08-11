@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IqBike Driver - Layanan Ojeg WA</title>
+    <title>IqBike - Ojeg WA</title>
     
-    <!-- FontAwesome untuk Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Leaflet OpenStreetMap CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -40,7 +37,6 @@
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
-            overflow-x: hidden;
         }
 
         .app-container {
@@ -51,10 +47,8 @@
             display: flex;
             flex-direction: column;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            position: relative;
         }
 
-        /* Header Bar */
         .header {
             background-color: var(--bg-dark);
             color: var(--text-light);
@@ -62,9 +56,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
         }
 
         .brand-title {
@@ -75,39 +66,11 @@
             gap: 6px;
         }
 
-        /* Mode Toggle */
-        .mode-toggle {
-            background-color: #2a2a2a;
-            border-radius: 20px;
-            padding: 3px;
-            display: flex;
-            gap: 2px;
-        }
-
-        .toggle-btn {
-            border: none;
-            background: transparent;
-            color: #888;
-            padding: 6px 12px;
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .toggle-btn.active {
-            background-color: var(--primary-green);
-            color: var(--text-dark);
-        }
-
-        /* Map Section */
         .map-wrapper {
             position: relative;
             width: 100%;
             height: 250px;
             background-color: #e5e3df;
-            z-index: 1;
         }
 
         #map {
@@ -115,7 +78,6 @@
             height: 100%;
         }
 
-        /* Tombol Bulat Lokasi Saya */
         .btn-my-location {
             position: absolute;
             bottom: 12px;
@@ -133,40 +95,12 @@
             border: none;
         }
 
-        .btn-my-location i {
-            color: var(--accent-red);
-            font-size: 18px;
-        }
-
-        /* Content Area */
         .content-area {
             padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            flex: 1;
-        }
-
-        /* Form Components */
-        .service-card {
-            background-color: #eef7e8;
-            border: 1px solid #c8e6b8;
-            border-radius: 12px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
             gap: 12px;
-        }
-
-        .service-icon {
-            background: var(--primary-green);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-dark);
+            flex: 1;
         }
 
         .location-actions {
@@ -192,7 +126,7 @@
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         .form-label {
@@ -202,12 +136,12 @@
             text-transform: uppercase;
         }
 
-        .form-input, .form-select {
+        .form-input {
             width: 100%;
-            padding: 12px;
+            padding: 10px 12px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             outline: none;
         }
 
@@ -226,256 +160,131 @@
             justify-content: center;
             gap: 8px;
             box-shadow: 0 4px 10px rgba(140, 198, 63, 0.4);
-        }
-
-        /* Driver Section (Default Hiden) */
-        #driverView {
-            display: none;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .order-card-driver {
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 14px;
-            background: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .driver-nav-btn {
-            background-color: var(--accent-blue);
-            color: #fff;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            text-decoration: none;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <!-- Header -->
     <header class="header">
         <div class="brand-title">
             <i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i>
             <span>IqBike</span>
         </div>
-        <div class="mode-toggle">
-            <button id="btnPassengerMode" class="toggle-btn active" onclick="switchMode('penumpang')">Penumpang</button>
-            <button id="btnDriverMode" class="toggle-btn" onclick="switchMode('driver')">Driver</button>
-        </div>
+        <span style="font-size: 12px; color: #8cc63f; font-weight: 600;">Ojeg WhatsApp</span>
     </header>
 
-    <!-- Map Wrapper -->
     <div class="map-wrapper">
         <div id="map"></div>
-        <!-- Tombol Lokasi Saya (Bulat Merah) -->
-        <button class="btn-my-location" onclick="centerToMyLocation()" title="Lokasi Saya">
-            <i class="fa-solid fa-crosshairs"></i>
+        <button class="btn-my-location" onclick="centerToMyLocation()">
+            <i class="fa-solid fa-crosshairs" style="color: var(--accent-red);"></i>
         </button>
     </div>
 
     <main class="content-area">
-        
-        <!-- TAMPILAN MODE PENUMPANG -->
-        <div id="passengerView" style="display: flex; flex-direction: column; gap: 14px;">
-            <div class="service-card">
-                <div class="service-icon"><i class="fa-solid fa-motorcycle"></i></div>
-                <div>
-                    <h4 style="font-size:14px;">Ojeg Motor (iqBike)</h4>
-                    <p style="font-size:12px; color:#666;">Tarif Pas (Argo Buka)</p>
-                </div>
-            </div>
-
-            <div class="location-actions">
-                <button class="btn-action" onclick="setPoint('jemput')">
-                    <i class="fa-solid fa-map-pin" style="color: var(--accent-blue);"></i> Titik JEMPUT
-                </button>
-                <button class="btn-action" onclick="setPoint('tujuan')">
-                    <i class="fa-solid fa-flag-checkered" style="color: var(--accent-red);"></i> Titik TUJUAN
-                </button>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Nama Penumpang</label>
-                <input type="text" id="passengerName" class="form-input" value="Penumpang WA">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Cari Nama Tempat / Alamat</label>
-                <input type="text" id="searchPlace" class="form-input" placeholder="Ketik nama lokasi..." onchange="searchLocation(this.value)">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Lokasi Penjemputan</label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Klik 'Titik JEMPUT' di peta">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Lokasi Tujuan</label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Klik 'Titik TUJUAN' di peta">
-            </div>
-
-            <button class="btn-submit" onclick="sendOrderWA()">
-                <i class="fa-brands fa-whatsapp fa-lg"></i> Cari Driver Ojeg WA
+        <div class="location-actions">
+            <button class="btn-action" onclick="setPoint('jemput')">
+                <i class="fa-solid fa-map-pin" style="color: var(--accent-blue);"></i> Set JEMPUT
+            </button>
+            <button class="btn-action" onclick="setPoint('tujuan')">
+                <i class="fa-solid fa-flag-checkered" style="color: var(--accent-red);"></i> Set TUJUAN
             </button>
         </div>
 
-        <!-- TAMPILAN MODE DRIVER -->
-        <div id="driverView">
-            <div style="font-weight: 700; font-size: 14px; color: #333;">
-                <i class="fa-solid fa-list-check"></i> Radar Orderan Masuk Sekitar Anda
-            </div>
-
-            <!-- Simulasi Orderan Terdekat -->
-            <div class="order-card-driver">
-                <div style="display:flex; justify-content:space-between; font-weight:700;">
-                    <span>Budi Santoso</span>
-                    <span style="color: var(--primary-green-hover);">Rp 15.000</span>
-                </div>
-                <div style="font-size: 12px; color: #555;">
-                    <p><strong>Jemput:</strong> Lokasi GPS Anda Saat Ini</p>
-                    <p><strong>Tujuan:</strong> Stasiun / Pusat Kota</p>
-                </div>
-                <!-- Tombol Navigasi Driver Ke Maps -->
-                <a id="navGmapsBtn" href="#" target="_blank" class="driver-nav-btn">
-                    <i class="fa-solid fa-route"></i> Navigasi Rute (Google Maps)
-                </a>
-            </div>
+        <div class="form-group">
+            <label class="form-label">Nama Penumpang</label>
+            <input type="text" id="passengerName" class="form-input" placeholder="Masukkan nama...">
         </div>
 
+        <div class="form-group">
+            <label class="form-label">Cari Alamat</label>
+            <input type="text" class="form-input" placeholder="Ketik lokasi..." onchange="searchLocation(this.value)">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Lokasi Penjemputan</label>
+            <input type="text" id="pickupLocation" class="form-input" readonly placeholder="Klik 'Set JEMPUT' di peta">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Lokasi Tujuan</label>
+            <input type="text" id="dropoffLocation" class="form-input" readonly placeholder="Klik 'Set TUJUAN' di peta">
+        </div>
+
+        <button class="btn-submit" onclick="sendOrderWA()">
+            <i class="fa-brands fa-whatsapp fa-lg"></i> Pesan via WhatsApp
+        </button>
     </main>
 </div>
 
 <script>
-    let map, userMarker;
-    let userLat = -7.3686, userLng = 108.5332; // Default fallback
-    let currentMode = 'penumpang';
+    let map, marker;
     let pickupCoords = null, dropoffCoords = null;
 
-    // 1. Inisialisasi Peta
     function initMap() {
-        map = L.map('map', { zoomControl: false }).setView([userLat, userLng], 15);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19
-        }).addTo(map);
-
-        userMarker = L.marker([userLat, userLng], {draggable: true}).addTo(map);
-
-        // Ambil Lokasi Nyata HP Pengguna saat ini
+        map = L.map('map', { zoomControl: false }).setView([-7.3686, 108.5332], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        marker = L.marker([-7.3686, 108.5332], {draggable: true}).addTo(map);
         centerToMyLocation();
     }
 
-    // 2. Deteksi GPS HP Asli Pengguna
     function centerToMyLocation() {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    userLat = position.coords.latitude;
-                    userLng = position.coords.longitude;
-                    
-                    map.setView([userLat, userLng], 16);
-                    userMarker.setLatLng([userLat, userLng]);
-                    
-                    // Update link navigasi default driver
-                    updateDriverNavigation(userLat, userLng);
-                },
-                () => {
-                    alert("Gagal mengambil lokasi GPS. Pastikan Izin Lokasi di HP aktif.");
-                }
-            );
-        } else {
-            alert("Browser HP Anda tidak mendukung Geolokasi.");
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                map.setView([lat, lng], 16);
+                marker.setLatLng([lat, lng]);
+            });
         }
     }
 
-    // 3. Switch Mode (Penumpang <-> Driver)
-    function switchMode(mode) {
-        currentMode = mode;
-        const passengerView = document.getElementById('passengerView');
-        const driverView = document.getElementById('driverView');
-        const btnPassenger = document.getElementById('btnPassengerMode');
-        const btnDriver = document.getElementById('btnDriverMode');
-
-        if (mode === 'driver') {
-            passengerView.style.display = 'none';
-            driverView.style.display = 'flex';
-            btnPassenger.classList.remove('active');
-            btnDriver.classList.add('active');
-        } else {
-            passengerView.style.display = 'flex';
-            driverView.style.display = 'none';
-            btnPassenger.classList.add('active');
-            btnDriver.classList.remove('active');
-        }
-    }
-
-    // 4. Set Titik Jemput / Tujuan
     function setPoint(type) {
         const center = map.getCenter();
+        const coordString = `${center.lat.toFixed(5)},${center.lng.toFixed(5)}`;
         if (type === 'jemput') {
-            pickupCoords = center;
-            document.getElementById('pickupLocation').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-            alert("Titik JEMPUT berhasil diset sesuai tengah peta!");
+            pickupCoords = coordString;
+            document.getElementById('pickupLocation').value = coordString;
         } else {
-            dropoffCoords = center;
-            document.getElementById('dropoffLocation').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-            alert("Titik TUJUAN berhasil diset sesuai tengah peta!");
+            dropoffCoords = coordString;
+            document.getElementById('dropoffLocation').value = coordString;
         }
     }
 
-    // 5. Cari Lokasi Menggunakan OpenStreetMap Nominatim API
     function searchLocation(query) {
         if (!query) return;
         fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
             .then(res => res.json())
             .then(data => {
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lon = parseFloat(data[0].lon);
-                    map.setView([lat, lon], 16);
-                    userMarker.setLatLng([lat, lon]);
-                } else {
-                    alert("Lokasi tidak ditemukan.");
+                if (data.length > 0) {
+                    map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
                 }
             });
     }
 
-    // 6. Navigasi Driver Mengikuti Koordinat yang Ditentukan
-    function updateDriverNavigation(destLat, destLng) {
-        const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=bicycling`;
-        document.getElementById('navGmapsBtn').href = gmapsUrl;
-    }
-
-    // 7. Kirim Pesan Order Ke WA
     function sendOrderWA() {
-        const name = document.getElementById('passengerName').value;
+        const name = document.getElementById('passengerName').value || 'Penumpang';
         const pickup = document.getElementById('pickupLocation').value;
         const dropoff = document.getElementById('dropoffLocation').value;
 
         if(!pickup || !dropoff) {
-            alert("Silakan tentukan Titik JEMPUT dan TUJUAN terlebih dahulu!");
+            alert("Harap tentukan titik JEMPUT dan TUJUAN terlebih dahulu!");
             return;
         }
 
-        const text = `Order IqBike:%0ANama: ${name}%0AJemput: ${pickup}%0ATujuan: ${dropoff}`;
+        const gmapsPickup = `https://www.google.com/maps?q=${pickup}`;
+        const gmapsDropoff = `https://www.google.com/maps?q=${dropoff}`;
+
+        const text = `Halo Admin/Driver IqBike, ada orderan baru:%0A%0A` +
+            `*Nama:* ${encodeURIComponent(name)}%0A` +
+            `*Titik Jemput:* ${gmapsPickup}%0A` +
+            `*Titik Tujuan:* ${gmapsDropoff}`;
+
+        // Ganti nomor ini dengan nomor WhatsApp Admin/Grup Driver
         window.open(`https://wa.me/6281234567890?text=${text}`, '_blank');
     }
 
-    // Jalankan Peta saat Halaman Selesai Dimuat
     window.onload = initMap;
 </script>
 
