@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IqBike - Proteksi Driver & Realtime System</title>
+    <title>IqBike - Fitur Reset Alamat & Ongkos</title>
     
     <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -217,6 +217,28 @@
             font-weight: 700;
         }
 
+        /* Tombol Reset Alamat & Ongkos */
+        .btn-reset {
+            width: 100%;
+            padding: 10px;
+            background-color: #ffffff;
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-reset:active {
+            background-color: #ffebee;
+        }
+
         .btn-submit {
             width: 100%;
             padding: 14px;
@@ -342,6 +364,11 @@
             <div class="fare-card">
                 Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 16px;">Rp 9.000</span>
             </div>
+
+            <!-- TOMBOL RESET ALAMAT & ONGKOS -->
+            <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
+                <i class="fa-solid fa-rotate-left"></i> Reset Alamat & Hitung Ulang Ongkos
+            </button>
 
             <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
                 <i class="fa-solid fa-paper-plane"></i> Kirim / Update Orderan Ke Driver
@@ -547,6 +574,28 @@
         const dist = map.distance(center, L.latLng(userCurrentLat, userCurrentLng));
         if (dist < 30) btn.classList.add('active-blue');
         else btn.classList.remove('active-blue');
+    }
+
+    // FUNGSI RESET ALAMAT DAN ONGKOS
+    function resetAddressAndFare() {
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        if (order && order.status !== 'WAITING') {
+            alert("Tidak dapat mereset total karena orderan sudah diproses driver!");
+            return;
+        }
+
+        // Kembalikan ke Posisi GPS HP
+        const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
+        pickupCoords = currentLatLng;
+        dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
+        initialDropoffCoords = dropoffCoords;
+
+        updateMarker('jemput', pickupCoords);
+        updateMarker('tujuan', dropoffCoords);
+
+        map.setView(currentLatLng, 16);
+        calculateFare();
+        alert("Alamat dan Ongkos Berhasil Di-reset!");
     }
 
     function calculateFare() {
