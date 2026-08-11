@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IqBike - Fitur Reset Alamat & Ongkos</title>
+    <title>IqBike - Proteksi Driver & Realtime System</title>
     
     <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -217,7 +217,6 @@
             font-weight: 700;
         }
 
-        /* Tombol Reset Alamat & Ongkos */
         .btn-reset {
             width: 100%;
             padding: 10px;
@@ -232,11 +231,6 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .btn-reset:active {
-            background-color: #ffebee;
         }
 
         .btn-submit {
@@ -365,7 +359,6 @@
                 Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 16px;">Rp 9.000</span>
             </div>
 
-            <!-- TOMBOL RESET ALAMAT & ONGKOS -->
             <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
                 <i class="fa-solid fa-rotate-left"></i> Reset Alamat & Hitung Ulang Ongkos
             </button>
@@ -390,7 +383,6 @@
                 <p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>
             </div>
 
-            <!-- TAB RIWAYAT DRIVER -->
             <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
                 <span style="font-weight: 700; font-size: 13px; color:#555;">
                     <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Order Selesai
@@ -408,13 +400,13 @@
     let pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerPhoneMarker = null;
     let pickupCoords = null, dropoffCoords = null;
-    let initialDropoffCoords = null;
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
-    let baseFare = 9000;
+    let currentMode = 'penumpang';
     let totalFare = 9000;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
 
+    // Custom Icon Peta
     const redPinIcon = L.divIcon({
         html: '<i class="fa-solid fa-location-dot" style="font-size:32px; color:#eb5757;"></i>',
         iconSize: [32, 32], iconAnchor: [16, 32], className: 'custom-pin'
@@ -451,6 +443,7 @@
         updatePassengerAppUI();
     }
 
+    // 1. OTOMATIS LACAK & SIMPAN GPS SESUAI MODE
     function startLiveGpsTracking() {
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition((pos) => {
@@ -458,33 +451,45 @@
                 userCurrentLat = currentPos.lat;
                 userCurrentLng = currentPos.lng;
 
-                localStorage.setItem('iqbike_live_pos', JSON.stringify(currentPos));
-                orderChannel.postMessage({ type: 'GPS_UPDATE', pos: currentPos });
+                if (currentMode === 'penumpang') {
+                    localStorage.setItem('iqbike_passenger_gps', JSON.stringify(currentPos));
+                    let activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
+                    if (activeOrder) {
+                        activeOrder.passengerPhoneLat = currentPos.lat;
+                        activeOrder.passengerPhoneLng = currentPos.lng;
+                        localStorage.setItem('iqbike_active_order', JSON.stringify(activeOrder));
+                    }
+                } else {
+                    localStorage.setItem('iqbike_driver_gps', JSON.stringify(currentPos));
+                }
 
-                updateLiveMarkersOnMap(currentPos);
+                orderChannel.postMessage({ type: 'GPS_UPDATE', role: currentMode, pos: currentPos });
+                renderAllLiveMarkers();
             }, null, { enableHighAccuracy: true });
         }
     }
 
-    function updateLiveMarkersOnMap(pos) {
-        if (!driverLiveMarker) {
-            driverLiveMarker = L.marker([pos.lat, pos.lng], {icon: driverMotorIcon, zIndexOffset: 1000}).addTo(map);
-        } else {
-            driverLiveMarker.setLatLng([pos.lat, pos.lng]);
+    // TAMPILKAN DRIVER & HP PENUMPANG DI PETA
+    function renderAllLiveMarkers() {
+        // Render Driver (Motor Hijau)
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
+        if (driverGps) {
+            if (!driverLiveMarker) {
+                driverLiveMarker = L.marker([driverGps.lat, driverGps.lng], {icon: driverMotorIcon, zIndexOffset: 1000}).addTo(map);
+                driverLiveMarker.bindPopup("Driver Motor");
+            } else {
+                driverLiveMarker.setLatLng([driverGps.lat, driverGps.lng]);
+            }
         }
 
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        if (order && order.passengerPhoneLat) {
+        // Render HP Penumpang (Ikon Biru)
+        const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
+        if (passengerGps) {
             if (!passengerPhoneMarker) {
-                passengerPhoneMarker = L.marker([order.passengerPhoneLat, order.passengerPhoneLng], {icon: passengerPhoneIcon, zIndexOffset: 900}).addTo(map);
+                passengerPhoneMarker = L.marker([passengerGps.lat, passengerGps.lng], {icon: passengerPhoneIcon, zIndexOffset: 900}).addTo(map);
+                passengerPhoneMarker.bindPopup("Posisi HP Penumpang Realtime");
             } else {
-                passengerPhoneMarker.setLatLng([order.passengerPhoneLat, order.passengerPhoneLng]);
-            }
-        } else {
-            if (!passengerPhoneMarker) {
-                passengerPhoneMarker = L.marker([pos.lat, pos.lng], {icon: passengerPhoneIcon, zIndexOffset: 900}).addTo(map);
-            } else {
-                passengerPhoneMarker.setLatLng([pos.lat, pos.lng]);
+                passengerPhoneMarker.setLatLng([passengerGps.lat, passengerGps.lng]);
             }
         }
     }
@@ -502,7 +507,6 @@
         }
         if (!dropoffCoords) {
             dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-            initialDropoffCoords = dropoffCoords;
             updateMarker('tujuan', dropoffCoords);
         }
 
@@ -540,7 +544,7 @@
     function setPointToCenter(type) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (type === 'jemput' && order && order.status !== 'WAITING') {
-            alert("Titik jemput sudah dikunci oleh driver dan tidak dapat diubah!");
+            alert("Titik jemput sudah dikunci oleh driver!");
             return;
         }
 
@@ -576,19 +580,16 @@
         else btn.classList.remove('active-blue');
     }
 
-    // FUNGSI RESET ALAMAT DAN ONGKOS
     function resetAddressAndFare() {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (order && order.status !== 'WAITING') {
-            alert("Tidak dapat mereset total karena orderan sudah diproses driver!");
+            alert("Orderan sedang diproses driver!");
             return;
         }
 
-        // Kembalikan ke Posisi GPS HP
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         pickupCoords = currentLatLng;
         dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-        initialDropoffCoords = dropoffCoords;
 
         updateMarker('jemput', pickupCoords);
         updateMarker('tujuan', dropoffCoords);
@@ -598,15 +599,30 @@
         alert("Alamat dan Ongkos Berhasil Di-reset!");
     }
 
+    // 2. HITUNG ONGKOS DENGAN LOGIKA UBAH TUJUAN YANG BENAR
     function calculateFare() {
-        if (pickupCoords && dropoffCoords) {
-            const mainDistMeters = map.distance(pickupCoords, initialDropoffCoords || dropoffCoords);
-            baseFare = computeDistanceFare(mainDistMeters);
+        if (!pickupCoords || !dropoffCoords) return;
+
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        // Jika BELUM dikonfirmasi driver / orderan baru: Hitung murni rute dari Jemput ke Tujuan
+        if (!order || order.status === 'WAITING') {
+            const distMeters = map.distance(pickupCoords, dropoffCoords);
+            totalFare = computeDistanceFare(distMeters);
+            document.getElementById('fareText').innerText = `Rp ${totalFare.toLocaleString('id-ID')}`;
+        } 
+        // Jika SUDAH DITERIMA driver dan penumpang ubah tujuan di tengah jalan
+        else {
+            const initialDrop = L.latLng(order.initialDropoffLat || order.dropoffLat, order.initialDropoffLng || order.dropoffLng);
+            const baseDist = map.distance(L.latLng(order.pickupLat, order.pickupLng), initialDrop);
+            const baseFare = computeDistanceFare(baseDist);
 
             let extraFare = 0;
-            if (initialDropoffCoords && map.distance(initialDropoffCoords, dropoffCoords) > 50) {
-                const extraMeters = map.distance(initialDropoffCoords, dropoffCoords);
-                extraFare = computeDistanceFare(extraMeters);
+            const extraDist = map.distance(initialDrop, dropoffCoords);
+            
+            // Tambahkan biaya tambahan jika beda lokasi > 50 meter dari tujuan awal
+            if (extraDist > 50) {
+                extraFare = computeDistanceFare(extraDist);
             }
 
             totalFare = baseFare + extraFare;
@@ -650,7 +666,6 @@
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
-            initialDropoffCoords = dropoffCoords;
             order = {
                 id: Date.now(),
                 passengerName: name,
@@ -660,6 +675,8 @@
                 pickupLng: pickupCoords.lng,
                 dropoffLat: dropoffCoords.lat,
                 dropoffLng: dropoffCoords.lng,
+                initialDropoffLat: dropoffCoords.lat,
+                initialDropoffLng: dropoffCoords.lng,
                 passengerPhoneLat: userCurrentLat,
                 passengerPhoneLng: userCurrentLng,
                 fare: totalFare,
@@ -687,6 +704,12 @@
     function setOrderStatus(newStatus) {
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
+
+        // Kunci posisi awal saat driver konfirmasi orderan
+        if (newStatus === 'HEADING_PICKUP' && !order.initialDropoffLat) {
+            order.initialDropoffLat = order.dropoffLat;
+            order.initialDropoffLng = order.dropoffLng;
+        }
 
         order.status = newStatus;
         localStorage.setItem('iqbike_active_order', JSON.stringify(order));
@@ -778,7 +801,7 @@
         card.className = 'order-card-driver';
 
         const pickupPoint = L.latLng(order.pickupLat, order.pickupLng);
-        const passengerPhonePoint = L.latLng(order.passengerPhoneLat, order.passengerPhoneLng);
+        const passengerPhonePoint = L.latLng(order.passengerPhoneLat || order.pickupLat, order.passengerPhoneLng || order.pickupLng);
         const gapMeters = map.distance(pickupPoint, passengerPhonePoint);
 
         let fraudAlertHTML = '';
@@ -865,7 +888,7 @@
     orderChannel.onmessage = function(e) {
         if (e.data.type === 'NEW_ORDER') triggerVibration([200, 100, 200]);
         else if (e.data.type === 'STATUS_CHANGE') triggerVibration([500]);
-        else if (e.data.type === 'GPS_UPDATE') updateLiveMarkersOnMap(e.data.pos);
+        else if (e.data.type === 'GPS_UPDATE') renderAllLiveMarkers();
 
         fitMapBoundsToAllMarkers();
         updatePassengerAppUI();
@@ -873,6 +896,7 @@
     };
 
     function switchMode(mode) {
+        currentMode = mode;
         const pView = document.getElementById('passengerView');
         const dView = document.getElementById('driverView');
         const btnP = document.getElementById('btnPassenger');
