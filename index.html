@@ -351,7 +351,7 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Jalan)</label>
+                <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Perjalanan)</label>
                 <input type="text" id="dropoffLocation" class="form-input" placeholder="Mencari alamat tujuan...">
             </div>
 
@@ -360,11 +360,11 @@
             </div>
 
             <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
-                <i class="fa-solid fa-rotate-left"></i> Reset Alamat & Hitung Ulang Ongkos
+                <i class="fa-solid fa-rotate-left"></i> Batal Ubah & Batal Ongkos Tambahan
             </button>
 
             <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
-                <i class="fa-solid fa-paper-plane"></i> Kirim / Update Orderan Ke Driver
+                <i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver
             </button>
         </div>
 
@@ -406,7 +406,6 @@
 
     const orderChannel = new BroadcastChannel('iqbike_system');
 
-    // Custom Icon Peta
     const redPinIcon = L.divIcon({
         html: '<i class="fa-solid fa-location-dot" style="font-size:32px; color:#eb5757;"></i>',
         iconSize: [32, 32], iconAnchor: [16, 32], className: 'custom-pin'
@@ -443,7 +442,6 @@
         updatePassengerAppUI();
     }
 
-    // 1. OTOMATIS LACAK & SIMPAN GPS SESUAI MODE
     function startLiveGpsTracking() {
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition((pos) => {
@@ -469,25 +467,20 @@
         }
     }
 
-    // TAMPILKAN DRIVER & HP PENUMPANG DI PETA
     function renderAllLiveMarkers() {
-        // Render Driver (Motor Hijau)
         const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
         if (driverGps) {
             if (!driverLiveMarker) {
                 driverLiveMarker = L.marker([driverGps.lat, driverGps.lng], {icon: driverMotorIcon, zIndexOffset: 1000}).addTo(map);
-                driverLiveMarker.bindPopup("Driver Motor");
             } else {
                 driverLiveMarker.setLatLng([driverGps.lat, driverGps.lng]);
             }
         }
 
-        // Render HP Penumpang (Ikon Biru)
         const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
         if (passengerGps) {
             if (!passengerPhoneMarker) {
                 passengerPhoneMarker = L.marker([passengerGps.lat, passengerGps.lng], {icon: passengerPhoneIcon, zIndexOffset: 900}).addTo(map);
-                passengerPhoneMarker.bindPopup("Posisi HP Penumpang Realtime");
             } else {
                 passengerPhoneMarker.setLatLng([passengerGps.lat, passengerGps.lng]);
             }
@@ -580,47 +573,46 @@
         else btn.classList.remove('active-blue');
     }
 
+    // BATALKAN PERUBAHAN & KEMBALI KE LOKASI/ONGKOS AWAL KONFIRMASI
     function resetAddressAndFare() {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        if (order && order.status !== 'WAITING') {
-            alert("Orderan sedang diproses driver!");
-            return;
+
+        if (!order || order.status === 'WAITING') {
+            const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
+            pickupCoords = currentLatLng;
+            dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
+            updateMarker('jemput', pickupCoords);
+            updateMarker('tujuan', dropoffCoords);
+            map.setView(currentLatLng, 16);
+        } else {
+            // Kembalikan ke titik tujuan awal konfirmasi
+            dropoffCoords = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
+            updateMarker('tujuan', dropoffCoords);
+            fetchAddress('tujuan', dropoffCoords);
         }
 
-        const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
-        pickupCoords = currentLatLng;
-        dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-
-        updateMarker('jemput', pickupCoords);
-        updateMarker('tujuan', dropoffCoords);
-
-        map.setView(currentLatLng, 16);
         calculateFare();
-        alert("Alamat dan Ongkos Berhasil Di-reset!");
+        updatePassengerAppUI();
+        alert("Perubahan dibatalkan. Kembali ke lokasi & ongkos awal.");
     }
 
-    // 2. HITUNG ONGKOS DENGAN LOGIKA UBAH TUJUAN YANG BENAR
     function calculateFare() {
         if (!pickupCoords || !dropoffCoords) return;
 
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
-        // Jika BELUM dikonfirmasi driver / orderan baru: Hitung murni rute dari Jemput ke Tujuan
         if (!order || order.status === 'WAITING') {
             const distMeters = map.distance(pickupCoords, dropoffCoords);
             totalFare = computeDistanceFare(distMeters);
             document.getElementById('fareText').innerText = `Rp ${totalFare.toLocaleString('id-ID')}`;
-        } 
-        // Jika SUDAH DITERIMA driver dan penumpang ubah tujuan di tengah jalan
-        else {
-            const initialDrop = L.latLng(order.initialDropoffLat || order.dropoffLat, order.initialDropoffLng || order.dropoffLng);
+        } else {
+            const initialDrop = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
             const baseDist = map.distance(L.latLng(order.pickupLat, order.pickupLng), initialDrop);
             const baseFare = computeDistanceFare(baseDist);
 
             let extraFare = 0;
             const extraDist = map.distance(initialDrop, dropoffCoords);
             
-            // Tambahkan biaya tambahan jika beda lokasi > 50 meter dari tujuan awal
             if (extraDist > 50) {
                 extraFare = computeDistanceFare(extraDist);
             }
@@ -683,11 +675,14 @@
                 status: 'WAITING',
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
+            alert("Orderan dikirim ke Radar Driver!");
         } else {
+            // SETUJUI TUJUAN BARU & UPDATE DRIVER
             order.dropoff = dropoff;
             order.dropoffLat = dropoffCoords.lat;
             order.dropoffLng = dropoffCoords.lng;
             order.fare = totalFare;
+            alert("Perubahan tujuan dan ongkos terbaru BERHASIL disetujui & diperbarui di Driver!");
         }
 
         localStorage.setItem('iqbike_active_order', JSON.stringify(order));
@@ -695,7 +690,6 @@
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
 
-        alert("Orderan dikirim / diperbarui ke Radar Driver!");
         fitMapBoundsToAllMarkers();
         updatePassengerAppUI();
         updateDriverAppUI();
@@ -705,7 +699,6 @@
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
 
-        // Kunci posisi awal saat driver konfirmasi orderan
         if (newStatus === 'HEADING_PICKUP' && !order.initialDropoffLat) {
             order.initialDropoffLat = order.dropoffLat;
             order.initialDropoffLng = order.dropoffLng;
@@ -749,6 +742,7 @@
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        const btnSend = document.getElementById('btnSendOrder');
 
         const pickupInput = document.getElementById('pickupLocation');
         const btnSetJemput = document.getElementById('btnSetJemput');
@@ -761,6 +755,7 @@
             pickupInput.disabled = false;
             btnSetJemput.disabled = false;
             lockLabel.innerText = "";
+            btnSend.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver`;
             return;
         }
 
@@ -769,6 +764,7 @@
             btnSetJemput.disabled = true;
             lockLabel.innerText = "(Dikunci oleh driver)";
             if (pickupMarker) pickupMarker.dragging.disable();
+            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
         }
 
         if (order.status === 'WAITING') {
@@ -850,7 +846,7 @@
             ${fraudAlertHTML}
             <div style="font-size: 12px; color: #444; display:flex; flex-direction:column; gap:6px; background:#f9f9f9; padding:8px; border-radius:6px;">
                 <p><strong><i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Jemput:</strong> ${order.pickup}</p>
-                <p><strong><i class="fa-solid fa-flag-checkered"></i> Antar:</strong> ${order.dropoff}</p>
+                <p><strong><i class="fa-solid fa-flag-checkered"></i> Antar Terupdate:</strong> ${order.dropoff}</p>
             </div>
             ${actionButtonHTML}
         `;
