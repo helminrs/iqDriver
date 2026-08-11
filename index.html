@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IqBike - System Hybrid Complete</title>
+    <title>IqBike - System Hybrid inDrive Style</title>
     
     <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -55,7 +55,6 @@
             position: relative;
         }
 
-        /* MODAL LOGIN ROLE SEPERTI INDRIVE */
         .login-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -267,20 +266,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
-
-        .fraud-alert {
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .fraud-safe { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .fraud-warning { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
 
         .driver-step-btn {
             width: 100%;
@@ -291,34 +277,21 @@
             font-size: 13px;
             color: white;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
         }
 
         .btn-accept { background-color: var(--accent-blue); }
         .btn-arrived { background-color: var(--accent-orange); }
         .btn-trip { background-color: var(--primary-green); color: #111; }
         .btn-finish { background-color: #27ae60; }
-
-        .history-card {
-            border: 1px solid #e0e0e0;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            background: #fafafa;
-        }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <!-- MODAL SELEKSI PERAN LOGIN -->
     <div id="loginOverlay" class="login-overlay">
         <i class="fa-solid fa-motorcycle" style="font-size: 48px; color: var(--primary-green); margin-bottom: 12px;"></i>
         <h2 style="font-size: 22px; font-weight: 800;">Selamat Datang di IqBike</h2>
-        <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Pilih peran masuk Anda untuk memulai</p>
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Pilih jenis akun/peran Anda untuk melanjutkan</p>
         
         <div class="login-card">
             <button class="role-btn role-passenger" onclick="selectUserRole('penumpang')">
@@ -348,7 +321,7 @@
     </div>
 
     <main class="content-area">
-        <!-- MODE PENUMPANG -->
+        <!-- VIEW PENUMPANG -->
         <div id="passengerView" style="display: none; flex-direction: column; gap: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
@@ -374,12 +347,12 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Jalan)</label>
+                <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Perjalanan)</label>
                 <input type="text" id="dropoffLocation" class="form-input" placeholder="Mencari alamat tujuan...">
             </div>
 
             <div class="fare-card">
-                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 16px;">Rp 9.000</span>
+                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 15px;">Rp 9.000</span>
             </div>
 
             <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
@@ -391,7 +364,7 @@
             </button>
         </div>
 
-        <!-- MODE DRIVER -->
+        <!-- VIEW DRIVER -->
         <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-weight: 700; font-size: 14px;">
@@ -405,16 +378,6 @@
             <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 10px;">
                 <p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>
             </div>
-
-            <!-- TAB RIWAYAT DRIVER -->
-            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
-                <span style="font-weight: 700; font-size: 13px; color:#555;">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Order Selesai
-                </span>
-                <div id="historyContainer" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
-                    <p style="font-size: 11px; color: #a0a0a0;">Belum ada riwayat orderan.</p>
-                </div>
-            </div>
         </div>
     </main>
 </div>
@@ -426,11 +389,10 @@
     let pickupCoords = null, dropoffCoords = null;
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null; 
-    let totalFare = 9000;
+    let computedTotalFare = 9000;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
 
-    // IKON PRESISI DAN TIDAK SALING MENUTUPI
     const redPinIcon = L.divIcon({
         html: '<i class="fa-solid fa-location-dot" style="font-size:24px; color:#eb5757;"></i>',
         iconSize: [24, 24], iconAnchor: [12, 24], className: 'custom-pin'
@@ -481,7 +443,6 @@
             document.getElementById('driverView').style.display = 'flex';
             updateDriverAppUI();
         }
-        fitMapBoundsToAllMarkers();
     }
 
     function startLiveGpsTracking() {
@@ -493,12 +454,6 @@
 
                 if (userRole === 'penumpang') {
                     localStorage.setItem('iqbike_passenger_gps', JSON.stringify(currentPos));
-                    let activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
-                    if (activeOrder) {
-                        activeOrder.passengerPhoneLat = currentPos.lat;
-                        activeOrder.passengerPhoneLng = currentPos.lng;
-                        localStorage.setItem('iqbike_active_order', JSON.stringify(activeOrder));
-                    }
                 } else if (userRole === 'driver') {
                     localStorage.setItem('iqbike_driver_gps', JSON.stringify(currentPos));
                 }
@@ -588,6 +543,56 @@
             }).catch(() => {});
     }
 
+    // FORMULA HITUNG ONGKOS & SELISIH UBAH TUJUAN
+    function computeDistanceFare(distanceInMeters) {
+        if (distanceInMeters <= 3600) return 9000;
+        const extraMeters = distanceInMeters - 3600;
+        let fare = 9000;
+        const fullKm = Math.floor(extraMeters / 1000);
+        fare += fullKm * 2500;
+        const remainderMeters = Math.round(extraMeters % 1000);
+        if (remainderMeters >= 1 && remainderMeters <= 199) fare += 500;
+        else if (remainderMeters >= 200 && remainderMeters <= 399) fare += 1000;
+        else if (remainderMeters >= 400 && remainderMeters <= 599) fare += 1500;
+        else if (remainderMeters >= 600 && remainderMeters <= 799) fare += 2000;
+        else if (remainderMeters >= 800) fare += 2500;
+        return fare;
+    }
+
+    function calculateFare() {
+        if (!pickupCoords || !dropoffCoords) return;
+
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        // Jika Belum Diproses Driver (Awal Pemesanan)
+        if (!order || order.status === 'WAITING') {
+            const distMeters = map.distance(pickupCoords, dropoffCoords);
+            computedTotalFare = computeDistanceFare(distMeters);
+            document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')}`;
+        } 
+        // Jika Sudah Konfirmasi/Jalan dan Penumpang Menggeser Pin Tujuan Baru
+        else {
+            const initialDrop = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
+            const baseDist = map.distance(L.latLng(order.pickupLat, order.pickupLng), initialDrop);
+            const baseFare = computeDistanceFare(baseDist);
+
+            const extraDist = map.distance(initialDrop, dropoffCoords);
+            let extraFare = 0;
+
+            if (extraDist > 100) { // Jika digeser lebih dari 100 meter dari tujuan awal
+                extraFare = computeDistanceFare(extraDist);
+            }
+
+            computedTotalFare = baseFare + extraFare;
+
+            if (extraFare > 0) {
+                document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')} (+Tambahan Ubah Tujuan: Rp ${extraFare.toLocaleString('id-ID')})`;
+            } else {
+                document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')}`;
+            }
+        }
+    }
+
     function resetAddressAndFare() {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order || order.status === 'WAITING') {
@@ -601,15 +606,7 @@
             updateMarker('tujuan', dropoffCoords);
         }
         calculateFare();
-        updatePassengerAppUI();
-        alert("Perubahan dibatalkan. Kembali ke lokasi awal.");
-    }
-
-    function calculateFare() {
-        if (!pickupCoords || !dropoffCoords) return;
-        const distMeters = map.distance(pickupCoords, dropoffCoords);
-        totalFare = (distMeters <= 3600) ? 9000 : 9000 + (Math.floor((distMeters - 3600) / 1000) * 2500);
-        document.getElementById('fareText').innerText = `Rp ${totalFare.toLocaleString('id-ID')}`;
+        alert("Batal penyesuaian alamat. Kembali ke lokasi & ongkos awal.");
     }
 
     function sendOrder() {
@@ -621,78 +618,47 @@
 
         if (!order) {
             order = {
-                id: Date.now(),
-                passengerName: name,
-                pickup: pickup,
-                dropoff: dropoff,
-                pickupLat: pickupCoords.lat,
-                pickupLng: pickupCoords.lng,
-                dropoffLat: dropoffCoords.lat,
-                dropoffLng: dropoffCoords.lng,
-                initialDropoffLat: dropoffCoords.lat,
-                initialDropoffLng: dropoffCoords.lng,
-                passengerPhoneLat: userCurrentLat,
-                passengerPhoneLng: userCurrentLng,
-                fare: totalFare,
-                status: 'WAITING',
+                id: Date.now(), passengerName: name, pickup, dropoff,
+                pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
+                dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
+                initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
+                fare: computedTotalFare, status: 'WAITING',
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
             alert("Orderan dikirim ke Radar Driver!");
         } else {
+            // PERBARUI HARGA DAN TUJUAN KE DRIVER
             order.dropoff = dropoff;
             order.dropoffLat = dropoffCoords.lat;
             order.dropoffLng = dropoffCoords.lng;
-            order.fare = totalFare;
-            alert("Lokasi tujuan & ongkos terbaru dikirim ke Driver!");
+            order.fare = computedTotalFare;
+            alert(`Perubahan tujuan disetujui! Ongkos diperbarui menjadi Rp ${computedTotalFare.toLocaleString('id-ID')}`);
         }
 
         localStorage.setItem('iqbike_active_order', JSON.stringify(order));
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
-
-        fitMapBoundsToAllMarkers();
+        
         updatePassengerAppUI();
         updateDriverAppUI();
     }
 
-    // ALUR LENGKAP TAHAPAN DRIVER
     function setOrderStatus(newStatus) {
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
 
-        order.status = newStatus;
-        localStorage.setItem('iqbike_active_order', JSON.stringify(order));
-        
-        orderChannel.postMessage({ type: 'STATUS_CHANGE' });
-        triggerVibration([500]);
-
-        if (newStatus === 'HEADING_PICKUP') {
-            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.pickupLat},${order.pickupLng}&travelmode=bicycling`;
-            window.open(gmapsUrl, '_blank');
-        } else if (newStatus === 'ON_TRIP') {
-            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.dropoffLat},${order.dropoffLng}&travelmode=bicycling`;
-            window.open(gmapsUrl, '_blank');
-        } else if (newStatus === 'FINISHED') {
-            let history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
-            history.unshift(order);
-            localStorage.setItem('iqbike_history', JSON.stringify(history));
-            localStorage.removeItem('iqbike_active_order');
-            alert("Orderan Selesai! Tersimpan di Riwayat.");
+        if (newStatus === 'HEADING_PICKUP' && !order.initialDropoffLat) {
+            order.initialDropoffLat = order.dropoffLat;
+            order.initialDropoffLng = order.dropoffLng;
         }
 
-        fitMapBoundsToAllMarkers();
+        order.status = newStatus;
+        localStorage.setItem('iqbike_active_order', JSON.stringify(order));
+        orderChannel.postMessage({ type: 'STATUS_CHANGE' });
+        triggerVibration([500]);
+        
         updateDriverAppUI();
         updatePassengerAppUI();
-    }
-
-    function fitMapBoundsToAllMarkers() {
-        const bounds = [];
-        if (pickupCoords) bounds.push([pickupCoords.lat, pickupCoords.lng]);
-        if (dropoffCoords) bounds.push([dropoffCoords.lat, dropoffCoords.lng]);
-        if (driverLiveMarker) bounds.push(driverLiveMarker.getLatLng());
-        if (passengerPhoneMarker) bounds.push(passengerPhoneMarker.getLatLng());
-
-        if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40] });
     }
 
     function updatePassengerAppUI() {
@@ -702,9 +668,13 @@
 
         if (!order) {
             statusBox.className = "status-box status-online";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Siap Menerima Order`;
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Siap Menerima Order`;
             btnSend.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver`;
             return;
+        }
+
+        if (order.status !== 'WAITING') {
+            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
         }
 
         if (order.status === 'WAITING') {
@@ -713,15 +683,12 @@
         } else if (order.status === 'HEADING_PICKUP') {
             statusBox.className = "status-box status-process";
             statusBox.innerHTML = `<i class="fa-solid fa-motorcycle"></i> Driver Sedang Menuju Lokasi Jemput!`;
-            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
         } else if (order.status === 'ARRIVED') {
             statusBox.className = "status-box status-arrived";
             statusBox.innerHTML = `<i class="fa-solid fa-location-dot"></i> Driver Telah Tiba di Titik Jemput!`;
-            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
         } else if (order.status === 'ON_TRIP') {
             statusBox.className = "status-box status-process";
             statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Dalam Perjalanan Menuju Tujuan...`;
-            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
         }
     }
 
@@ -730,103 +697,39 @@
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
-            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk saat ini...</p>';
-            renderHistory();
+            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 20px;">Belum ada orderan masuk...</p>';
             return;
         }
 
-        container.innerHTML = '';
-        const card = document.createElement('div');
-        card.className = 'order-card-driver';
-
-        const pickupPoint = L.latLng(order.pickupLat, order.pickupLng);
-        const passengerPhonePoint = L.latLng(order.passengerPhoneLat || order.pickupLat, order.passengerPhoneLng || order.pickupLng);
-        const gapMeters = map.distance(pickupPoint, passengerPhonePoint);
-
-        let fraudAlertHTML = '';
-        if (gapMeters > 500) {
-            fraudAlertHTML = `
-                <div class="fraud-alert fraud-warning">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>WASPADAI ORDER FIKTIF: HP Penumpang berjarak ${(gapMeters/1000).toFixed(1)} km dari titik jemput!</span>
-                </div>`;
-        } else {
-            fraudAlertHTML = `
-                <div class="fraud-alert fraud-safe">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span>ORDERAN AMAN: HP Penumpang berada tepat di area titik jemput (${Math.round(gapMeters)}m).</span>
-                </div>`;
-        }
-
-        // TAHAPAN TOMBOL LENGKAP DRIVER
-        let actionButtonHTML = '';
+        let actionBtnHTML = '';
         if (order.status === 'WAITING') {
-            actionButtonHTML = `
-                <button class="driver-step-btn btn-accept" onclick="setOrderStatus('HEADING_PICKUP')">
-                    <i class="fa-solid fa-route"></i> Terima Order & Navigasi Jemput
-                </button>`;
+            actionBtnHTML = `<button class="driver-step-btn btn-accept" onclick="setOrderStatus('HEADING_PICKUP')"><i class="fa-solid fa-route"></i> Terima Order</button>`;
         } else if (order.status === 'HEADING_PICKUP') {
-            actionButtonHTML = `
-                <button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')">
-                    <i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Titik Jemput
-                </button>`;
+            actionBtnHTML = `<button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')"><i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Jemputan</button>`;
         } else if (order.status === 'ARRIVED') {
-            actionButtonHTML = `
-                <button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')">
-                    <i class="fa-solid fa-motorcycle"></i> Berangkat (Navigasi Antar)
-                </button>`;
+            actionBtnHTML = `<button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')"><i class="fa-solid fa-motorcycle"></i> Berangkat Menuju Tujuan</button>`;
         } else if (order.status === 'ON_TRIP') {
-            actionButtonHTML = `
-                <button class="driver-step-btn btn-finish" onclick="setOrderStatus('FINISHED')">
-                    <i class="fa-solid fa-circle-check"></i> Orderan Selesai
-                </button>`;
+            actionBtnHTML = `<button class="driver-step-btn btn-finish" onclick="setOrderStatus('FINISHED')"><i class="fa-solid fa-circle-check"></i> Selesaikan Perjalanan</button>`;
         }
 
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; font-weight:700;">
-                <span><i class="fa-solid fa-user"></i> ${order.passengerName} (${order.time})</span>
-                <span style="color: var(--primary-green-hover); font-size:15px;">Rp ${order.fare.toLocaleString('id-ID')}</span>
+        container.innerHTML = `
+            <div class="order-card-driver">
+                <div style="display:flex; justify-content:space-between; font-weight:700;">
+                    <span><i class="fa-solid fa-user"></i> ${order.passengerName}</span>
+                    <span style="color: var(--primary-green-hover); font-size:16px;">Rp ${order.fare.toLocaleString('id-ID')}</span>
+                </div>
+                <div style="font-size:12px; background:#f9f9f9; padding:8px; border-radius:6px; display:flex; flex-direction:column; gap:4px;">
+                    <p><strong>Jemput:</strong> ${order.pickup}</p>
+                    <p><strong>Tujuan Terupdate:</strong> ${order.dropoff}</p>
+                </div>
+                ${actionBtnHTML}
             </div>
-            ${fraudAlertHTML}
-            <div style="font-size: 12px; color: #444; display:flex; flex-direction:column; gap:6px; background:#f9f9f9; padding:8px; border-radius:6px;">
-                <p><strong><i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Jemput:</strong> ${order.pickup}</p>
-                <p><strong><i class="fa-solid fa-flag-checkered"></i> Tujuan Terupdate:</strong> ${order.dropoff}</p>
-            </div>
-            ${actionButtonHTML}
         `;
-        container.appendChild(card);
-        renderHistory();
-    }
-
-    function renderHistory() {
-        const historyContainer = document.getElementById('historyContainer');
-        const history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
-
-        if (history.length === 0) {
-            historyContainer.innerHTML = '<p style="font-size: 11px; color: #a0a0a0;">Belum ada riwayat orderan.</p>';
-            return;
-        }
-
-        historyContainer.innerHTML = '';
-        history.forEach(item => {
-            const hCard = document.createElement('div');
-            hCard.className = 'history-card';
-            hCard.innerHTML = `
-                <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                    <span>${item.passengerName}</span>
-                    <span style="color:#27ae60;">Rp ${item.fare.toLocaleString('id-ID')}</span>
-                </div>
-                <div style="color:#666; margin-top:4px;">
-                    <div>Jemput: ${item.pickup}</div>
-                    <div>Tujuan: ${item.dropoff}</div>
-                </div>
-            `;
-            historyContainer.appendChild(hCard);
-        });
     }
 
     orderChannel.onmessage = function() {
         renderAllLiveMarkers();
+        calculateFare();
         updatePassengerAppUI();
         updateDriverAppUI();
     };
