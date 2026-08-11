@@ -293,6 +293,10 @@
             font-size: 13px;
             color: white;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         .btn-accept { background-color: var(--accent-blue); }
@@ -643,7 +647,7 @@
             order.dropoffLat = dropoffCoords.lat;
             order.dropoffLng = dropoffCoords.lng;
             order.fare = computedTotalFare;
-            order.routeUpdated = true; // Flag bahwa penumpang mengubah rute
+            order.routeUpdated = true;
             alert(`Perubahan tujuan disetujui! Ongkos diperbarui menjadi Rp ${computedTotalFare.toLocaleString('id-ID')}`);
         }
 
@@ -655,6 +659,7 @@
         updateDriverAppUI();
     }
 
+    // OPERASIONAL STEP LENGKAP BEREVOLUSI SECARA BERURUTAN
     function setOrderStatus(newStatus) {
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
@@ -664,8 +669,14 @@
             order.initialDropoffLng = order.dropoffLng;
         }
 
-        order.status = newStatus;
-        localStorage.setItem('iqbike_active_order', JSON.stringify(order));
+        if (newStatus === 'FINISHED') {
+            alert(`Orderan Selesai!\nTotal Pendapatan: Rp ${order.fare.toLocaleString('id-ID')}\nDisimpan ke Riwayat.`);
+            localStorage.removeItem('iqbike_active_order');
+        } else {
+            order.status = newStatus;
+            localStorage.setItem('iqbike_active_order', JSON.stringify(order));
+        }
+
         orderChannel.postMessage({ type: 'STATUS_CHANGE' });
         triggerVibration([500]);
         
@@ -673,7 +684,6 @@
         updatePassengerAppUI();
     }
 
-    // FUNGSI MEMBUKA NAVIGASI GOOGLE MAPS UNTUK DRIVER
     function openGoogleMapsNav(targetLat, targetLng) {
         const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}&travelmode=bicycling`;
         window.open(gmapsUrl, '_blank');
@@ -722,16 +732,35 @@
         let actionBtnHTML = '';
         let navBtnHTML = '';
 
+        // FIX LOGIKA BERURUTAN
         if (order.status === 'WAITING') {
-            actionBtnHTML = `<button class="driver-step-btn btn-accept" onclick="setOrderStatus('HEADING_PICKUP')"><i class="fa-solid fa-route"></i> Terima Order</button>`;
+            actionBtnHTML = `
+                <button class="driver-step-btn btn-accept" onclick="setOrderStatus('HEADING_PICKUP')">
+                    <i class="fa-solid fa-route"></i> Terima Order & OTW Jemput
+                </button>`;
         } else if (order.status === 'HEADING_PICKUP') {
-            navBtnHTML = `<button class="btn-nav-gmaps" onclick="openGoogleMapsNav(${order.pickupLat}, ${order.pickupLng})"><i class="fa-solid fa-location-arrow"></i> Navigasi Buka Google Maps (Jemput)</button>`;
-            actionBtnHTML = `<button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')"><i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Jemputan</button>`;
+            navBtnHTML = `
+                <button class="btn-nav-gmaps" onclick="openGoogleMapsNav(${order.pickupLat}, ${order.pickupLng})">
+                    <i class="fa-solid fa-location-arrow"></i> Navigasi Buka Google Maps (Rute Jemput)
+                </button>`;
+            actionBtnHTML = `
+                <button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')">
+                    <i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Titik Jemput
+                </button>`;
         } else if (order.status === 'ARRIVED') {
-            actionBtnHTML = `<button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')"><i class="fa-solid fa-motorcycle"></i> Berangkat Menuju Tujuan</button>`;
+            actionBtnHTML = `
+                <button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')">
+                    <i class="fa-solid fa-motorcycle"></i> Mulai Perjalanan (Berangkat)
+                </button>`;
         } else if (order.status === 'ON_TRIP') {
-            navBtnHTML = `<button class="btn-nav-gmaps" onclick="openGoogleMapsNav(${order.dropoffLat}, ${order.dropoffLng})"><i class="fa-solid fa-location-arrow"></i> Navigasi Buka Google Maps (Antar)</button>`;
-            actionBtnHTML = `<button class="driver-step-btn btn-finish" onclick="setOrderStatus('FINISHED')"><i class="fa-solid fa-circle-check"></i> Selesaikan Perjalanan</button>`;
+            navBtnHTML = `
+                <button class="btn-nav-gmaps" onclick="openGoogleMapsNav(${order.dropoffLat}, ${order.dropoffLng})">
+                    <i class="fa-solid fa-location-arrow"></i> Navigasi Buka Google Maps (Rute Tujuan)
+                </button>`;
+            actionBtnHTML = `
+                <button class="driver-step-btn btn-finish" onclick="setOrderStatus('FINISHED')">
+                    <i class="fa-solid fa-circle-check"></i> Selesaikan Perjalanan
+                </button>`;
         }
 
         let routeAlertHTML = '';
