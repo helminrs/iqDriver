@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iqBike - Ojeg WA & Driver System</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f7f7f5; color: #1a1a1a; padding-bottom: 70px; max-width: 500px; margin: 0 auto; }
+
+    /* TOP ROLE SWITCHER */
+    .role-switcher { display: flex; background: #1c1c1c; padding: 6px; position: sticky; top: 0; z-index: 3000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .role-btn { flex: 1; padding: 10px; border: none; background: transparent; color: #aaa; font-weight: bold; font-size: 13px; border-radius: 8px; cursor: pointer; text-align: center; }
+    .role-btn.active { background: #ffca28; color: #1a1a1a; }
+
+    /* CONTAINER VIEWS */
+    .view-section { display: none; padding: 15px; }
+    .view-section.active { display: block; }
+
+    /* CARD & FORM STYLES */
+    .card { background: white; border-radius: 12px; padding: 14px; border: 1px solid #eee; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    label { font-size: 10px; font-weight: bold; color: #555; text-transform: uppercase; display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; margin-bottom: 8px; outline: none; }
+    input:focus, textarea:focus { border-color: #2e7d32; }
+
+    /* MAP CONTAINER (INDRIVE STYLE) */
+    .map-container { position: relative; width: 100%; height: 260px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc; margin-bottom: 10px; }
+    #map { width: 100%; height: 100%; }
+
+    .center-pin-wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 1000; pointer-events: none; text-align: center; }
+    .pin-tooltip { background: #1a1a1a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; white-space: nowrap; margin-bottom: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+    .pin-icon { font-size: 28px; line-height: 1; }
+
+    .btn-my-location { position: absolute; bottom: 10px; right: 10px; z-index: 1000; background: white; border: none; width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    .map-btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+    .map-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #0288d1; background: #e3f2fd; color: #0288d1; cursor: pointer; text-align: center; }
+    .map-btn.active { background: #0288d1; color: white; }
+
+    .search-wrapper { position: relative; margin-bottom: 8px; }
+    .suggestions-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 8px 8px; max-height: 160px; overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+    .suggestion-item { padding: 8px 10px; font-size: 11px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .suggestion-item:hover { background-color: #f0fdf4; color: #2e7d32; }
+
+    .summary-box { background: #f0fdf4; border: 1px solid #c8e6c9; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .summary-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+    .summary-item.total { font-weight: bold; font-size: 16px; color: #2e7d32; border-top: 1px dashed #a5d6a7; padding-top: 4px; margin-top: 4px; }
+
+    .btn-action-main { width: 100%; padding: 14px; background: #25d366; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    /* DRIVER UI STYLES */
+    .app-header { display: flex; align-items: center; padding-bottom: 12px; gap: 12px; }
+    .avatar { width: 42px; height: 42px; background: #1a1a1a; color: #ffca28; font-weight: bold; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .summary-container { display: flex; gap: 10px; margin-bottom: 12px; }
+    .summary-card { flex: 1; background: #1c1c1c; color: white; padding: 10px; border-radius: 10px; }
+    .summary-card span { font-size: 9px; text-transform: uppercase; color: #aaa; font-weight: bold; }
+    .summary-card h3 { font-size: 16px; margin-top: 2px; }
+    .summary-card.masuk h3 { color: #ffca28; }
+    .summary-card.keluar h3 { color: #ef5350; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: white; border-top: 1px solid #eee; display: flex; height: 60px; z-index: 2000; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; font-size: 10px; cursor: pointer; }
+    .nav-item.active { color: #2e7d32; font-weight: bold; }
+
+    /* NAVIGASI PETA DRIVER SCREEN */
+    #screen-navigasi-driver { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f7f7f5; z-index: 4000; padding: 15px; }
+    #screen-navigasi-driver.active { display: block; }
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+    .badge-jemput { background: #fff3cd; color: #856404; }
+    .badge-antar { background: #d4edda; color: #155724; }
+  </style>
+</head>
+<body>
+
+  <!-- ROLE SWITCHER TOP BAR -->
+  <div class="role-switcher">
+    <button class="role-btn active" id="btn-role-penumpang" onclick="switchRole('penumpang')">🛵 Order Penumpang</button>
+    <button class="role-btn" id="btn-role-driver" onclick="switchRole('driver')">👨‍✈️ Mode Driver (Helmi)</button>
+  </div>
+
+  <!-- ==================== VIEW 1: PENUMPANG ==================== -->
+  <div id="view-penumpang" class="view-section active">
+    <div class="card">
+      <label>👤 NAMA PENUMPANG</label>
+      <input type="text" id="p-nama" placeholder="Masukkan nama..." value="Penumpang WA">
+
+      <label>📍 PILIH MODE PIN PETA</label>
+      <div class="map-btn-group">
+        <div id="btn-mode-jemput" class="map-btn active" onclick="setMapMode('jemput')">📍 Pin JEMPUT</div>
+        <div id="btn-mode-antar" class="map-btn" onclick="setMapMode('antar')">🏁 Pin TUJUAN</div>
+      </div>
+
+      <!-- MAP CONTAINER INDRIVE -->
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="center-pin-wrapper">
+          <div class="pin-tooltip" id="pin-label-text">Geser peta...</div>
+          <div class="pin-icon" id="pin-icon-symbol">📍</div>
+        </div>
+        <button type="button" class="btn-my-location" onclick="centerToGps()">🎯</button>
+      </div>
+
+      <label>🔍 CARI TEMPAT / GEDUNG / SEKOLAH</label>
+      <div class="search-wrapper">
+        <input type="text" id="search-input" placeholder="Ketik SMAN 1 Banjaran / Weharima..." oninput="searchPlaces(this.value)">
+        <div id="suggestions" class="suggestions-list"></div>
+      </div>
+
+      <label>📍 LOKASI JEMPUT</label>
+      <textarea id="p-jemput" rows="2" placeholder="Mengambil titik lokasi..."></textarea>
+
+      <label>🏁 LOKASI TUJUAN</label>
+      <textarea id="p-antar" rows="2" placeholder="Detail tujuan..."></textarea>
+
+      <label>💳 METODE PEMBAYARAN</label>
+      <select id="p-bayar">
+        <option value="Tunai (Cash)">Tunai (Cash)</option>
+        <option value="Transfer / QRIS">Transfer / QRIS</option>
+      </select>
+
+      <label>📝 CATATAN UNTUK DRIVER</label>
+      <input type="text" id="p-catatan" value="-">
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-item"><span>📏 Jarak Estimasi:</span><strong id="p-txt-jarak">0.0 km</strong></div>
+      <div class="summary-item total"><span>💰 Total Tarif:</span><strong id="p-txt-tarif">Rp0</strong></div>
+    </div>
+
+    <button type="button" class="btn-action-main" onclick="kirimOrderKeDriver()">
+      📲 Cari Driver (Kirim Orderan WA)
+    </button>
+  </div>
+
+
+  <!-- ==================== VIEW 2: DRIVER ==================== -->
+  <div id="view-driver" class="view-section">
+    <div class="app-header">
+      <div class="avatar">iq</div>
+      <div>
+        <h2 style="font-size:16px;">HELMI NURLIANSYAH</h2>
+        <p style="font-size:12px; color:#666;" id="driver-subtitle">Catat Transaksi</p>
+      </div>
+    </div>
+
+    <div class="summary-container">
+      <div class="summary-card masuk"><span>MASUK HARI INI</span><h3 id="d-txt-masuk">Rp 0</h3></div>
+      <div class="summary-card keluar"><span>KELUAR HARI INI</span><h3 id="d-txt-keluar">Rp 0</h3></div>
+    </div>
+
+    <!-- TAB DRIVER 1: CATAT -->
+    <div id="tab-catat" class="driver-tab">
+      <div class="card" style="background: #e3f2fd; border: 1.5px dashed #0288d1;">
+        <label style="color:#0288d1;">📋 PASTE PESAN WA ORDERAN PENUMPANG:</label>
+        <textarea id="d-wa-text" rows="3" placeholder="Tempel seluruh pesan WA orderan di sini..."></textarea>
+        <button type="button" onclick="prosesNavigasiDriver()" style="width:100%; padding:12px; background:#0288d1; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
+          ⚡ Proses Orderan & Buka Navigasi
+        </button>
+      </div>
+
+      <div class="card">
+        <label>NOMINAL</label>
+        <input type="text" id="d-nominal" value="Rp 0">
+        <div class="input-card">
+          <label>TANGGAL</label>
+          <input type="date" id="d-tanggal">
+        </div>
+        <label>CATATAN TRANSAKSI</label>
+        <input type="text" id="d-catatan" placeholder="mis. Order jauh ke bandara">
+        <button type="button" onclick="simpanTransaksiDriver()" style="width:100%; padding:12px; background:#2e7d32; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:5px;">
+          ✓ Simpan Pemasukan
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB DRIVER 2: RIWAYAT -->
+    <div id="tab-riwayat" class="driver-tab" style="display:none;">
+      <div id="d-list-riwayat"></div>
+    </div>
+
+    <!-- BOTTOM NAV DRIVER -->
+    <div class="bottom-nav">
+      <div class="nav-item active" onclick="switchTabDriver('catat', this)"><span>➕</span>Catat</div>
+      <div class="nav-item" onclick="switchTabDriver('riwayat', this)"><span>📋</span>Riwayat</div>
+    </div>
+  </div>
+
+
+  <!-- ==================== SCREEN NAVIGASI PETA DRIVER ==================== -->
+  <div id="screen-navigasi-driver">
+    <button type="button" onclick="tutupNavigasiDriver()" style="padding:6px 12px; background:#ccc; border:none; border-radius:6px; margin-bottom:10px;">← Kembali</button>
+    <div class="card">
+      <span id="d-badge-status" class="status-badge badge-jemput">📍 TAHAP 1: PENJEMPUTAN</span>
+      <p id="d-info-rute" style="font-size:12px; color:#555; white-space:pre-line; margin-top:5px;"></p>
+    </div>
+
+    <button type="button" id="d-btn-gps" style="width:100%; padding:14px; background:#0288d1; color:white; border:none; border-radius:10px; font-weight:bold; margin-bottom:10px; cursor:pointer;">
+      📍 Buka GPS Titik JEMPUT
+    </button>
+    <button type="button" id="d-btn-next" style="width:100%; padding:12px; background:#ff9800; color:white; border:none; border-radius:10px; font-weight:bold; margin-bottom:10px; cursor:pointer;">
+      🙋‍♂️ Penumpang Naik / Lanjut Antar
+    </button>
+    <button type="button" onclick="tutupNavigasiDriver()" style="width:100%; padding:14px; background:#2e7d32; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">
+      ✓ Selesai Orderan
+    </button>
+  </div>
+
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <script>
+    const PHONE_ADMIN = "6285934602965";
+
+    // GLOBAL MAP VARS
+    let map;
+    let modePin = 'jemput';
+    let moveTimeout = null;
+    let searchDebounce = null;
+
+    let latJemput = -7.029822, lngJemput = 107.587289;
+    let latAntar = -7.027000, lngAntar = 107.589000;
+
+    // DRIVER VARS
+    let transaksiData = JSON.parse(localStorage.getItem('iqbike_transaksi')) || [];
+    let dUrlJemput = "", dUrlAntar = "", dExtractedNominal = 0, dStep = 1;
+
+    // SWITCH ROLE (PENUMPANG / DRIVER)
+    function switchRole(role) {
+      document.getElementById('btn-role-penumpang').className = role === 'penumpang' ? 'role-btn active' : 'role-btn';
+      document.getElementById('btn-role-driver').className = role === 'driver' ? 'role-btn active' : 'role-btn';
+
+      document.getElementById('view-penumpang').className = role === 'penumpang' ? 'view-section active' : 'view-section';
+      document.getElementById('view-driver').className = role === 'driver' ? 'view-section active' : 'view-section';
+
+      if(role === 'penumpang' && map) {
+        setTimeout(() => { map.invalidateSize(); }, 200);
+      }
+    }
+
+    // INIT MAP INDRIVE STYLE
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView([latJemput, lngJemput], 16);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      map.on('move', () => { document.getElementById('pin-label-text').innerText = "Menggeser..."; });
+
+      map.on('moveend', () => {
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(() => {
+          let center = map.getCenter();
+          if (modePin === 'jemput') {
+            latJemput = center.lat; lngJemput = center.lng;
+            reverseGeocode(latJemput, lngJemput, 'jemput');
+          } else {
+            latAntar = center.lat; lngAntar = center.lng;
+            reverseGeocode(latAntar, lngAntar, 'antar');
+          }
+          hitungRute();
+        }, 300);
+      });
+
+      centerToGps();
+    }
+
+    function centerToGps() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          let lat = pos.coords.latitude;
+          let lng = pos.coords.longitude;
+          if (modePin === 'jemput') {
+            latJemput = lat; lngJemput = lng;
+            latAntar = lat + 0.003; lngAntar = lng + 0.003;
+          }
+          map.setView([lat, lng], 16);
+          reverseGeocode(latJemput, lngJemput, 'jemput');
+          reverseGeocode(latAntar, lngAntar, 'antar');
+          hitungRute();
+        }, () => { hitungRute(); }, { enableHighAccuracy: true });
+      }
+    }
+
+    function setMapMode(mode) {
+      modePin = mode;
+      document.getElementById('btn-mode-jemput').className = mode === 'jemput' ? 'map-btn active' : 'map-btn';
+      document.getElementById('btn-mode-antar').className = mode === 'antar' ? 'map-btn active' : 'map-btn';
+      document.getElementById('pin-icon-symbol').innerText = mode === 'jemput' ? '📍' : '🏁';
+      map.panTo(mode === 'jemput' ? [latJemput, lngJemput] : [latAntar, lngAntar]);
+    }
+
+    function reverseGeocode(lat, lng, target) {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.display_name) {
+            let shortName = data.address.road || data.address.suburb || data.display_name.split(',')[0];
+            document.getElementById('pin-label-text').innerText = shortName;
+            if (target === 'jemput') document.getElementById('p-jemput').value = data.display_name;
+            else document.getElementById('p-antar').value = data.display_name;
+          }
+        }).catch(() => {});
+    }
+
+    function searchPlaces(query) {
+      clearTimeout(searchDebounce);
+      const suggestionsBox = document.getElementById('suggestions');
+      if (!query || query.length < 3) { suggestionsBox.style.display = 'none'; return; }
+
+      searchDebounce = setTimeout(() => {
+        let q = query;
+        if (!/bandung|banjaran|pameungpeuk|soreang/i.test(query)) q += " Bandung";
+
+        fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${latJemput}&lon=${lngJemput}&limit=5`)
+          .then(res => res.json())
+          .then(pData => {
+            suggestionsBox.innerHTML = '';
+            if (pData && pData.features && pData.features.length > 0) {
+              pData.features.forEach(f => {
+                let props = f.properties;
+                let label = [props.name, props.street, props.district, props.city].filter(Boolean).join(', ');
+                let div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerText = label || props.name;
+                div.onclick = function() {
+                  map.setView([f.geometry.coordinates[1], f.geometry.coordinates[0]], 16);
+                  suggestionsBox.style.display = 'none';
+                  document.getElementById('search-input').value = '';
+                };
+                suggestionsBox.appendChild(div);
+              });
+              suggestionsBox.style.display = 'block';
+            } else { suggestionsBox.style.display = 'none'; }
+          }).catch(() => { suggestionsBox.style.display = 'none'; });
+      }, 300);
+    }
+
+    // ARGO FORMULA PRESISI
+    function hitungRute() {
+      const R = 6371000;
+      const dLat = (latAntar - latJemput) * Math.PI / 180;
+      const dLon = (lngAntar - lngJemput) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(latJemput * Math.PI / 180) * Math.cos(latAntar * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      
+      let jarakMeter = Math.round(R * c * 1.20);
+      let totalTarif = 0;
+
+      if (jarakMeter <= 4500) {
+        totalTarif = 9000;
+      } else {
+        let sisaMeter = jarakMeter - 4500;
+        let kmUtama = Math.floor(sisaMeter / 1000);
+        let sisaM = sisaMeter % 1000;
+
+        totalTarif = 9000 + (kmUtama * 2000);
+
+        if (sisaM >= 1 && sisaM <= 249) totalTarif += 500;
+        else if (sisaM >= 250 && sisaM <= 499) totalTarif += 1000;
+        else if (sisaM >= 500 && sisaM <= 749) totalTarif += 1500;
+        else if (sisaM >= 750) totalTarif += 2000;
+      }
+
+      let jarakKm = (jarakMeter / 1000).toFixed(1);
+      document.getElementById('p-txt-jarak').innerText = jarakKm + " km";
+      document.getElementById('p-txt-tarif').innerText = "Rp" + totalTarif.toLocaleString('id-ID');
+
+      return { jarak: jarakKm, tarif: totalTarif };
+    }
+
+    function kirimOrderKeDriver() {
+      const nama = document.getElementById('p-nama').value.trim() || 'Offline';
+      const jemput = document.getElementById('p-jemput').value.trim();
+      const antar = document.getElementById('p-antar').value.trim();
+      const bayar = document.getElementById('p-bayar').value;
+      const catatan = document.getElementById('p-catatan').value.trim() || '-';
+
+      if(!jemput || !antar) { alert('Lengkapi alamat jemput & tujuan!'); return; }
+
+      const calc = hitungRute();
+      const linkJemput = `https://maps.google.com/?q=${latJemput.toFixed(6)},${lngJemput.toFixed(6)}`;
+      const linkAntar = `https://maps.google.com/?q=${latAntar.toFixed(6)},${lngAntar.toFixed(6)}`;
+
+      const pesanWA = 
+`*PESANAN OJEG WA BARU!*
+----------------------------------
+👤 *Nama:* ${nama}
+📍 *Jemput:* ${jemput}
+🗺️ *Rute Jemput:* ${linkJemput}
+🏁 *Tujuan:* ${antar}
+🗺️ *Rute Tujuan:* ${linkAntar}
+📏 *Jarak Estimasi Peta:* ${calc.jarak} km
+💰 *Total Tarif:* Rp${calc.tarif.toLocaleString('id-ID')}
+💳 *Bayar:* ${bayar}
+📝 *Catatan:* ${catatan}
+----------------------------------
+Terima kasih!`;
+
+      window.open(`https://wa.me/${PHONE_ADMIN}?text=${encodeURIComponent(pesanWA)}`, '_blank');
+    }
+
+    // ==================== LOGIKA DRIVER ====================
+    document.getElementById('d-tanggal').valueAsDate = new Date();
+
+    function switchTabDriver(tab, el) {
+      document.querySelectorAll('.driver-tab').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('tab-' + tab).style.display = 'block';
+      el.classList.add('active');
+    }
+
+    function prosesNavigasiDriver() {
+      const textWA = document.getElementById('d-wa-text').value.trim();
+      if(!textWA) { alert('Tempel pesan WA orderan terlebih dahulu!'); return; }
+
+      const urls = textWA.match(/(https?:\/\/[^\s]+)/g) || [];
+      dUrlJemput = urls[0] || "https://maps.google.com";
+      dUrlAntar = urls[1] || "https://maps.google.com";
+
+      const tMatch = textWA.match(/Rp\s*([\d\.]+)/i);
+      dExtractedNominal = tMatch ? parseInt(tMatch[1].replace(/\./g, '')) : 9000;
+
+      document.getElementById('d-info-rute').innerText = textWA;
+      dStep = 1;
+      updateUIDriverNav();
+      document.getElementById('screen-navigasi-driver').classList.add('active');
+    }
+
+    function updateUIDriverNav() {
+      const btnGps = document.getElementById('d-btn-gps');
+      const btnNext = document.getElementById('d-btn-next');
+      const badge = document.getElementById('d-badge-status');
+
+      if(dStep === 1) {
+        badge.className = "status-badge badge-jemput";
+        badge.innerText = "📍 TAHAP 1: PENJEMPUTAN";
+        btnGps.innerText = "📍 Buka GPS Titik JEMPUT";
+        btnGps.onclick = () => window.open(dUrlJemput, '_blank');
+        btnNext.style.display = "block";
+        btnNext.onclick = () => { dStep = 2; updateUIDriverNav(); };
+      } else {
+        badge.className = "status-badge badge-antar";
+        badge.innerText = "🏁 TAHAP 2: PENGANTARAN";
+        btnGps.innerText = "🏁 Buka GPS Titik ANTAR (TUJUAN)";
+        btnGps.onclick = () => window.open(dUrlAntar, '_blank');
+        btnNext.style.display = "none";
+      }
+    }
+
+    function tutupNavigasiDriver() {
+      document.getElementById('d-nominal').value = "Rp " + dExtractedNominal.toLocaleString('id-ID');
+      document.getElementById('screen-navigasi-driver').classList.remove('active');
+    }
+
+    function simpanTransaksiDriver() {
+      let nom = parseInt(document.getElementById('d-nominal').value.replace(/[^0-9]/g, '')) || 0;
+      if(nom <= 0) { alert('Masukkan nominal!'); return; }
+
+      transaksiData.unshift({
+        id: Date.now(),
+        nominal: nom,
+        catatan: document.getElementById('d-catatan').value || 'Order Ojeg WA',
+        tanggal: document.getElementById('d-tanggal').value
+      });
+
+      localStorage.setItem('iqbike_transaksi', JSON.stringify(transaksiData));
+      renderDriverData();
+      alert('Transaksi berhasil disimpan!');
+      document.getElementById('d-nominal').value = 'Rp 0';
+      document.getElementById('d-wa-text').value = '';
+    }
+
+    function renderDriverData() {
+      let totalMasuk = 0;
+      let html = '';
+      transaksiData.forEach(t => {
+        totalMasuk += t.nominal;
+        html += `
+          <div class="card" style="display:flex; justify-content:space-between;">
+            <div>
+              <strong>Order Ojeg WA</strong>
+              <p style="font-size:11px; color:#666;">${t.catatan}</p>
+              <span style="font-size:10px; color:#aaa;">${t.tanggal}</span>
+            </div>
+            <strong style="color:#2e7d32;">+Rp ${t.nominal.toLocaleString('id-ID')}</strong>
+          </div>
+        `;
+      });
+      document.getElementById('d-txt-masuk').innerText = 'Rp ' + totalMasuk.toLocaleString('id-ID');
+      document.getElementById('d-list-riwayat').innerHTML = html || '<p style="text-align:center; padding:20px; color:#888;">Belum ada riwayat</p>';
+    }
+
+    window.onload = () => {
+      initMap();
+      renderDriverData();
+    };
+  </script>
+</body>
+</html>
