@@ -691,10 +691,10 @@
         if ("vibrate" in navigator) navigator.vibrate(pattern);
     }
 
-    // FUNGSI FORMAT DAN VALIDASI NOMOR WA INDONESIA
+    // FORMAT & VALIDASI KETAT NOMOR WA INDONESIA
     function formatWaNumber(phone) {
         if (!phone) return "";
-        let cleaned = phone.replace(/\D/g, ''); // Hapus karakter selain angka
+        let cleaned = phone.replace(/\D/g, ''); 
         if (cleaned.startsWith('08')) {
             cleaned = '62' + cleaned.substring(1);
         } else if (cleaned.startsWith('8')) {
@@ -705,7 +705,6 @@
 
     function isValidWaNumber(phone) {
         const cleaned = formatWaNumber(phone);
-        // Validasi nomor WA Indonesia: Awalan 628 + 8 hingga 11 digit angka
         return /^628\d{8,11}$/.test(cleaned);
     }
 
@@ -1100,22 +1099,28 @@
     }
 
     function sendOrder() {
-        const name = document.getElementById('passengerName').value.trim() || 'Penumpang';
         const rawPhone = document.getElementById('passengerPhone').value.trim();
-        const pickup = document.getElementById('pickupLocation').value;
-        const dropoff = document.getElementById('dropoffLocation').value;
+        const name = document.getElementById('passengerName').value.trim();
 
-        // VALIDASI KETAT NOMOR WHATSAPP PENUMPANG
+        // 1. CEK PERSYARATAN WA KETAT DI PALING ATAS
         if (!rawPhone || !isValidWaNumber(rawPhone)) {
             alert("⚠️ ORDERAN DITOLAK!\n\nHarap masukkan nomor WhatsApp yang valid (contoh: 081234567890).\n\nUntuk meminimalisir orderan fiktif, penumpang wajib mengisi nomor WhatsApp yang terhubung aktif agar bisa dihubungi oleh Driver.");
+            return; // DIHENTIKAN TOTAL!
+        }
+
+        if (!name) {
+            alert("Harap masukkan nama Anda!");
             return;
         }
 
         const validPhone = formatWaNumber(rawPhone);
-        let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        const pickup = document.getElementById('pickupLocation').value;
+        const dropoff = document.getElementById('dropoffLocation').value;
 
-        if (!order) {
-            order = {
+        let existingOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        if (!existingOrder) {
+            const newOrder = {
                 id: Date.now(), 
                 passengerName: name, 
                 passengerPhone: validPhone,
@@ -1127,17 +1132,20 @@
                 timestamp: Date.now(),
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
+            localStorage.setItem('iqbike_active_order', JSON.stringify(newOrder));
             alert("Orderan berhasil dikirim ke Radar Driver!");
         } else {
-            order.dropoff = dropoff;
-            order.dropoffLat = dropoffCoords.lat;
-            order.dropoffLng = dropoffCoords.lng;
-            order.fare = computedTotalFare;
-            order.routeUpdated = true;
+            existingOrder.passengerName = name;
+            existingOrder.passengerPhone = validPhone;
+            existingOrder.dropoff = dropoff;
+            existingOrder.dropoffLat = dropoffCoords.lat;
+            existingOrder.dropoffLng = dropoffCoords.lng;
+            existingOrder.fare = computedTotalFare;
+            existingOrder.routeUpdated = true;
+            localStorage.setItem('iqbike_active_order', JSON.stringify(existingOrder));
             alert(`Perubahan tujuan disetujui! Ongkos diperbarui menjadi Rp ${computedTotalFare.toLocaleString('id-ID')}`);
         }
 
-        localStorage.setItem('iqbike_active_order', JSON.stringify(order));
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
         
