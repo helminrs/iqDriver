@@ -674,12 +674,23 @@
         if ("vibrate" in navigator) navigator.vibrate(pattern);
     }
 
+    // INISIALISASI PETA: AUTO FOCUS KE GPS NYATA SAAT REFRESH
     function initMap() {
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                userCurrentLat = pos.coords.latitude;
+                userCurrentLng = pos.coords.longitude;
+                map.setView([userCurrentLat, userCurrentLng], 16);
+                centerToMyLocation();
+            }, () => {
+                centerToMyLocation();
+            }, { enableHighAccuracy: true });
+        }
+
         startLiveGpsTracking();
-        centerToMyLocation();
     }
 
     function showLoginOverlay() {
@@ -771,11 +782,16 @@
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('currentRoleText').innerText = (role === 'penumpang') ? 'Mode: Penumpang' : 'Mode: Driver';
 
+        //UBAH WARNA TOMBOL GPS
+        const btnLocation = document.getElementById('btnMyLocation');
+
         if (role === 'penumpang') {
+            btnLocation.style.color = 'var(--accent-red)'; // Merah Penumpang
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
             updatePassengerAppUI();
         } else {
+            btnLocation.style.color = 'var(--accent-blue)'; // Biru Driver
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
             updateDriverAppUI();
@@ -803,11 +819,9 @@
         }
     }
 
-    // PERBAIKAN PETA: MARKER PIN/BENDERA HANYA MUNCUL JIKA ADA ORDERAN AKTIF
     function renderAllLiveMarkers() {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
-        // 1. Dapatkan Marker Driver
         const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
         if (driverGps) {
             if (!driverLiveMarker) {
@@ -817,7 +831,6 @@
             }
         }
 
-        // 2. Dapatkan Marker Penumpang (Titik Biru Realtime)
         const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
         if (passengerGps) {
             if (!passengerPhoneMarker) {
@@ -827,12 +840,10 @@
             }
         }
 
-        // 3. Kunci Tampilan Pin Merah & Bendera Finish: HANYA jika ada orderan aktif
         if (order) {
             if (pickupCoords) updateMarker('jemput', pickupCoords);
             if (dropoffCoords) updateMarker('tujuan', dropoffCoords);
         } else {
-            // Hapus Pin & Bendera jika tidak ada orderan yang diproses
             if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
             if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
         }
@@ -854,7 +865,7 @@
 
     function updateMarker(type, latlng) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        if (!order) return; // Kunci: Jangan buat marker jika tidak ada orderan
+        if (!order) return;
 
         const isPickupLocked = (order.status !== 'WAITING');
 
@@ -1224,7 +1235,6 @@
         window.open(gmapsUrl, '_blank');
     }
 
-    // UPDATE UI PENUMPANG + LOGIKA DRIVER SIBUK & ORDERAN SAMBUNG (RADIUS <= 3 KM)
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
@@ -1248,14 +1258,13 @@
             return;
         }
 
-        // PERHITUNGAN RADIUS SAMBUNG ( <= 3 KM )
         let isNextOrderAllowed = false;
         if (order.status === 'ON_TRIP' && driverGps && order.dropoffLat) {
             const dropLatLng = L.latLng(order.dropoffLat, order.dropoffLng);
             const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
             const distToDropMeters = map.distance(driverLatLng, dropLatLng);
 
-            if (distToDropMeters <= 3000) { // 3 Kilometer
+            if (distToDropMeters <= 3000) {
                 isNextOrderAllowed = true;
             }
         }
