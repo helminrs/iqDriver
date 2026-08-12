@@ -280,8 +280,8 @@
         .btn-submit {
             width: 100%;
             padding: 14px;
-            background-color: var(--primary-green);
-            color: var(--text-dark);
+            background-color: var(--whatsapp-green);
+            color: white;
             border: none;
             border-radius: 10px;
             font-size: 15px;
@@ -438,7 +438,7 @@
             </div>
 
             <div style="display:flex; flex-direction:column; gap:8px;">
-                <button onclick="verifyDriverPin()" class="btn-submit" style="padding:10px; font-size:13px;">Masuk Driver</button>
+                <button onclick="verifyDriverPin()" class="btn-submit" style="padding:10px; font-size:13px; background:var(--primary-green); color:#111;">Masuk Driver</button>
                 <button onclick="triggerResetPinWa()" style="background:none; border:none; color:var(--primary-green); font-size:11px; text-decoration:underline; cursor:pointer;">
                     Lupa PIN? Minta Kode Verifikasi via WA Admin
                 </button>
@@ -507,7 +507,7 @@
                     <span id="recFare">Rp 0</span>
                 </div>
             </div>
-            <button class="btn-submit" onclick="closeReceiptModal()" style="margin-top:10px;">
+            <button class="btn-submit" onclick="closeReceiptModal()" style="margin-top:10px; background:var(--primary-green); color:#111;">
                 <i class="fa-solid fa-check"></i> Tutup & Simpan ke Riwayat
             </button>
         </div>
@@ -551,7 +551,7 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Nomor WhatsApp Aktif <span style="color:red">* (Wajib untuk Pesan)</span></label>
+                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">* (Penting untuk Verifikasi WA)</span></label>
                 <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
             </div>
 
@@ -576,7 +576,7 @@
             </button>
 
             <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
-                <i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver
+                <i class="fa-brands fa-whatsapp"></i> Kirim & Verifikasi Orderan via WA Driver
             </button>
         </div>
 
@@ -645,6 +645,7 @@
 </div>
 
 <script>
+    const DRIVER_WA_PHONE = "6285934602965"; // NOMOR WA DRIVER TUNGGAL / ADMIN
     const ADMIN_MASTER_KEY = "9922";
 
     function getStoredPin() {
@@ -691,7 +692,6 @@
         if ("vibrate" in navigator) navigator.vibrate(pattern);
     }
 
-    // FORMAT & VALIDASI KETAT NOMOR WA INDONESIA
     function formatWaNumber(phone) {
         if (!phone) return "";
         let cleaned = phone.replace(/\D/g, ''); 
@@ -701,11 +701,6 @@
             cleaned = '62' + cleaned;
         }
         return cleaned;
-    }
-
-    function isValidWaNumber(phone) {
-        const cleaned = formatWaNumber(phone);
-        return /^628\d{8,11}$/.test(cleaned);
     }
 
     function initMap() {
@@ -754,9 +749,8 @@
     }
 
     function triggerResetPinWa() {
-        const waAdminPhone = "6285934602965";
         const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon berikan Kode Verifikasi Master untuk reset PIN.";
-        const waUrl = `whatsapp://send?phone=${waAdminPhone}&text=${encodeURIComponent(message)}`;
+        const waUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(message)}`;
 
         closeDriverPinModal();
         document.getElementById('inputMasterKey').value = '';
@@ -1098,60 +1092,60 @@
         alert("Batal penyesuaian alamat. Kembali ke lokasi & ongkos awal.");
     }
 
+    // FUNGSI UTAMA PENGIRIMAN ORDERAN VIA WHATSAPP DIRECT VERIFICATION
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
-
-        // 1. CEK PERSYARATAN WA KETAT DI PALING ATAS
-        if (!rawPhone || !isValidWaNumber(rawPhone)) {
-            alert("⚠️ ORDERAN DITOLAK!\n\nHarap masukkan nomor WhatsApp yang valid (contoh: 081234567890).\n\nUntuk meminimalisir orderan fiktif, penumpang wajib mengisi nomor WhatsApp yang terhubung aktif agar bisa dihubungi oleh Driver.");
-            return; // DIHENTIKAN TOTAL!
-        }
-
-        if (!name) {
-            alert("Harap masukkan nama Anda!");
-            return;
-        }
-
-        const validPhone = formatWaNumber(rawPhone);
         const pickup = document.getElementById('pickupLocation').value;
         const dropoff = document.getElementById('dropoffLocation').value;
 
-        let existingOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
-
-        if (!existingOrder) {
-            const newOrder = {
-                id: Date.now(), 
-                passengerName: name, 
-                passengerPhone: validPhone,
-                pickup, dropoff,
-                pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
-                dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
-                initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
-                fare: computedTotalFare, status: 'WAITING', routeUpdated: false,
-                timestamp: Date.now(),
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            };
-            localStorage.setItem('iqbike_active_order', JSON.stringify(newOrder));
-            alert("Orderan berhasil dikirim ke Radar Driver!");
-        } else {
-            existingOrder.passengerName = name;
-            existingOrder.passengerPhone = validPhone;
-            existingOrder.dropoff = dropoff;
-            existingOrder.dropoffLat = dropoffCoords.lat;
-            existingOrder.dropoffLng = dropoffCoords.lng;
-            existingOrder.fare = computedTotalFare;
-            existingOrder.routeUpdated = true;
-            localStorage.setItem('iqbike_active_order', JSON.stringify(existingOrder));
-            alert(`Perubahan tujuan disetujui! Ongkos diperbarui menjadi Rp ${computedTotalFare.toLocaleString('id-ID')}`);
+        if (!name) {
+            alert("Harap masukkan Nama Anda!");
+            return;
         }
 
+        if (!rawPhone || rawPhone.length < 9) {
+            alert("Harap masukkan Nomor WhatsApp Anda yang valid!");
+            return;
+        }
+
+        const formattedPhone = formatWaNumber(rawPhone);
+
+        const newOrder = {
+            id: Date.now(), 
+            passengerName: name, 
+            passengerPhone: formattedPhone,
+            pickup, dropoff,
+            pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
+            dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
+            initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
+            fare: computedTotalFare, status: 'WAITING', routeUpdated: false,
+            timestamp: Date.now(),
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+
+        localStorage.setItem('iqbike_active_order', JSON.stringify(newOrder));
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
-        
+
+        // PESAN DIRECT YANG WAJIB DIKIRIM PENUMPANG KE WA DRIVER
+        const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
+                       `👤 Nama: ${name}\n` +
+                       `📱 WA Penumpang: ${formattedPhone}\n` +
+                       `📍 Jemput: ${pickup}\n` +
+                       `🏁 Tujuan: ${dropoff}\n` +
+                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n\n` +
+                       `Mohon dikonfirmasi ya, terima kasih!`;
+
+        const directWaUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
+
         updatePassengerAppUI();
         updateDriverAppUI();
         renderAllLiveMarkers();
+
+        alert("Aplikasi akan membuka WhatsApp untuk verifikasi nomor Anda. Silakan tekan SEND/KIRIM pada pesan yang otomatis disiapkan untuk memverifikasi orderan Anda ke Driver.");
+        
+        window.location.href = directWaUrl;
     }
 
     function openPassengerWa(phone, name) {
@@ -1329,7 +1323,7 @@
         if (!order) {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap Menerima Order`;
-            btnSend.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver`;
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim & Verifikasi Orderan via WA Driver`;
             btnSend.disabled = false;
             btnSend.classList.remove('btn-disabled');
             
@@ -1364,7 +1358,7 @@
 
         if (order.status === 'WAITING') {
             statusBox.className = "status-box status-process";
-            statusBox.innerHTML = `<i class="fa-solid fa-clock"></i> Menunggu Konfirmasi Driver...`;
+            statusBox.innerHTML = `<i class="fa-solid fa-clock"></i> Menunggu Konfirmasi Driver via WA...`;
         } else if (order.status === 'HEADING_PICKUP') {
             statusBox.className = "status-box status-process";
             statusBox.innerHTML = `<i class="fa-solid fa-motorcycle"></i> Driver Sedang Menuju Lokasi Jemput!`;
