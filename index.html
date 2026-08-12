@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IqBike - System Hybrid inDrive Style</title>
+
+    <!-- HUBUNGAN KE FILE MANIFEST.JSON -->
+    <link rel="manifest" href="manifest.json">
     
     <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -406,7 +408,7 @@
                 <i class="fa-solid fa-user"></i> Masuk Sebagai PENUMPANG
             </button>
             <button class="role-btn role-driver" onclick="selectUserRole('driver')">
-                <i class="fa-solid fa-id-card"></i> Masuk Sebagai DRIVER
+                <i class="fa-solid fa-id-card"></i> Masuk Sebagai DRIVER (Khusus Admin)
             </button>
         </div>
     </div>
@@ -582,6 +584,9 @@
 </div>
 
 <script>
+    // CONFIG PIN RAHASIA DRIVER KHUSUS OWNER
+    const DRIVER_SECRET_PIN = "8899"; 
+
     let map;
     let pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerPhoneMarker = null;
@@ -629,7 +634,16 @@
         document.getElementById('loginOverlay').style.display = 'flex';
     }
 
+    // PROTEKSI AKSES DRIVER DENGAN PIN RAHASIA
     function selectUserRole(role) {
+        if (role === 'driver') {
+            const inputPin = prompt("Masukkan PIN Rahasia Driver (Khusus Owner):");
+            if (inputPin !== DRIVER_SECRET_PIN) {
+                alert("Akses Ditolak! Mode Driver hanya diperuntukkan bagi Admin/Owner.");
+                return;
+            }
+        }
+
         userRole = role;
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('currentRoleText').innerText = (role === 'penumpang') ? 'Mode: Penumpang' : 'Mode: Driver';
@@ -742,7 +756,6 @@
             return;
         }
 
-        // DETEKSI KOORDINAT (-7.xxx, 107.xxx)
         const coordRegex = /([-+]?\d{1,2}\.\d+)\s*,\s*([-+]?\d{1,3}\.\d+)/;
         let match = query.match(coordRegex);
 
@@ -758,7 +771,6 @@
             }
         }
 
-        // PENCARIAN TEMPAT NAMA JALAN / LOKASI
         if (query.length >= 3 && !query.startsWith('http')) {
             clearTimeout(searchDebounce);
             searchDebounce = setTimeout(() => {
@@ -1151,7 +1163,7 @@
                 </button>`;
         } else if (order.status === 'ON_TRIP') {
             navBtnHTML = `
-                <button class="btn-nav-gmaps" onclick="openGoogleMapsNav(${order.dropoffLat}, ${order.dropoffLng})">
+                <button class="driver-step-btn btn-nav-gmaps" onclick="openGoogleMapsNav(${order.dropoffLat}, ${order.dropoffLng})">
                     <i class="fa-solid fa-location-arrow"></i> Navigasi Buka Google Maps (Rute Tujuan)
                 </button>`;
             actionBtnHTML = `
