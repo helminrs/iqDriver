@@ -843,7 +843,7 @@
             </div>
 
             <div style="display:flex; flex-direction:column; gap:8px;">
-                <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
+                <button id="btnSendOrder" class="btn-submit" type="button" onclick="handleMainActionButton()">
                     <i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver
                 </button>
                 
@@ -1009,6 +1009,7 @@
         masterEl.style.display = 'block';
         
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}inspect/{x}/{y}.png', { maxZoom: 19 });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         map.on('movestart', () => {
@@ -1494,6 +1495,29 @@
         calculateFare();
     }
 
+    // FUNGSI UTAMA TOMBOL (MEMBEDAKAN BUAT ORDER BARU ATAU CHAT DRIVER SAAT OTW)
+    function handleMainActionButton() {
+        const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        // Jika sudah ada order aktif dan statusnya BUKAN waiting (sedang OTW/Jemput/Trip), arahkan langsung ke chat WhatsApp Driver
+        if (activeOrder && activeOrder.status !== 'WAITING') {
+            openDriverWaFromPassenger(activeOrder.passengerName, activeOrder.passengerPhone);
+            return;
+        }
+
+        // Jika belum ada order aktif atau masih WAITING, jalankan proses kirim order baru
+        sendOrder();
+    }
+
+    function openDriverWaFromPassenger(name, phone) {
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps')) || { lat: userCurrentLat, lng: userCurrentLng };
+        const driverLocationUrl = `https://maps.google.com/?q=${driverGps.lat},${driverGps.lng}`;
+
+        const text = `Halo Driver, saya ${name} (${phone}). Mengonfirmasi terkait jemputan saya.`;
+        const waUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(text)}`;
+        window.location.href = waUrl;
+    }
+
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
@@ -1824,7 +1848,6 @@
         window.open(gmapsUrl, '_blank');
     }
 
-    // PERBAIKAN PEMULIHAN DATA SAAT REFRESH / MEMBUAT HALAMAN DIMUAT ULANG
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
@@ -1846,14 +1869,26 @@
             return;
         }
 
+        document.getElementById('passengerName').value = order.passengerName || '';
+        document.getElementById('passengerPhone').value = order.passengerPhone || '';
+        document.getElementById('passengerNote').value = order.note !== '-' ? order.note : '';
+        document.getElementById('pickupLocation').value = order.pickup || '';
+        document.getElementById('dropoffLocation').value = order.dropoff || '';
+
         btnCancel.style.display = 'flex';
 
         if (order.status !== 'WAITING') {
             btnJemput.disabled = true;
             pickupInput.disabled = true;
+            
+            // Ubah tombol hijau menjadi tombol Chat WhatsApp ke Driver saat perjalanan aktif
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Chat WhatsApp ke Driver`;
+            btnSend.style.backgroundColor = 'var(--whatsapp-green)';
         } else {
             btnJemput.disabled = false;
             pickupInput.disabled = false;
+            
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver`;
         }
 
         if (order.status === 'WAITING') {
@@ -1870,22 +1905,10 @@
             statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Perjalanan Sedang Berlangsung...`;
         }
 
-        // MEMULIHKAN DATA INPUT FORM AGAR TIDAK KOSONG SAAT REFRESH
-        document.getElementById('passengerName').value = order.passengerName || '';
-        document.getElementById('passengerPhone').value = order.passengerPhone || '';
-        document.getElementById('passengerNote').value = (order.note && order.note !== '-') ? order.note : '';
-        document.getElementById('pickupLocation').value = order.pickup || '';
-        document.getElementById('dropoffLocation').value = order.dropoff || '';
-        
-        computedTotalFare = order.fare || 0;
-        document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')}`;
-
-        if (order.pickupLat && order.pickupLng) {
-            pickupCoords = L.latLng(order.pickupLat, order.pickupLng);
-        }
-        if (order.dropoffLat && order.dropoffLng) {
-            dropoffCoords = L.latLng(order.dropoffLat, order.dropoffLng);
-        }
+        computedTotalFare = order.fare;
+        document.getElementById('fareText').innerText = `Rp ${order.fare.toLocaleString('id-ID')}`;
+        pickupCoords = L.latLng(order.pickupLat, order.pickupLng);
+        dropoffCoords = L.latLng(order.dropoffLat, order.dropoffLng);
         renderFixedMarkers();
     }
 
