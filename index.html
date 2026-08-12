@@ -638,7 +638,7 @@
         document.getElementById('loginOverlay').style.display = 'flex';
     }
 
-    // PROTEKSI AKSES DRIVER + DIRECT RESET KE WA ADMIN
+    // PROTEKSI AKSES DRIVER + DEEP LINK INSTAN KE APLIKASI WA ADMIN
     function selectUserRole(role) {
         if (role === 'driver') {
             const currentPin = getStoredPin();
@@ -675,11 +675,13 @@
         }
     }
 
-    // FUNGSI DIRECT BUKA WA ADMIN UNTUK MEMINTA RESET OTP
+    // FUNGSI MEMBUKA APLIKASI WA KANTOR SECARA DIRECT (NATIVE DEEP LINK)
     function sendDirectWaToAdmin() {
         const waAdminPhone = "6285934602965";
         const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon kirimkan kode OTP untuk reset PIN saya.";
-        const waUrl = `https://wa.me/${waAdminPhone}?text=${encodeURIComponent(message)}`;
+        
+        // FORMAT DEEP LINK KUSUS "whatsapp://" (MEMBUKA APPS WA TANPA LEWAT BROWSER)
+        const waUrl = `whatsapp://send?phone=${waAdminPhone}&text=${encodeURIComponent(message)}`;
 
         window.location.href = waUrl;
 
@@ -694,7 +696,7 @@
                     alert("Gagal memperbarui PIN! PIN minimal 4 angka.");
                 }
             }
-        }, 1000);
+        }, 1200);
     }
 
     function changeDriverPin() {
