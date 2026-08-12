@@ -178,6 +178,7 @@
         }
 
         .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
+        .status-busy { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
         .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
         .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
@@ -713,11 +714,8 @@
         const waUrl = `whatsapp://send?phone=${waAdminPhone}&text=${encodeURIComponent(message)}`;
 
         closeDriverPinModal();
-        
-        // PASTI KAN DIBERSIHKAN FORM RESET BILA SEBELUMNYA PERNAH TERISI
         document.getElementById('inputMasterKey').value = '';
         document.getElementById('inputNewPin').value = '';
-        
         document.getElementById('resetPinModal').style.display = 'flex';
         
         window.location.href = waUrl;
@@ -783,6 +781,7 @@
             updateDriverAppUI();
             renderFinanceAndHistory();
         }
+        renderAllLiveMarkers();
     }
 
     function startLiveGpsTracking() {
@@ -804,7 +803,11 @@
         }
     }
 
+    // PERBAIKAN PETA: MARKER PIN/BENDERA HANYA MUNCUL JIKA ADA ORDERAN AKTIF
     function renderAllLiveMarkers() {
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        // 1. Dapatkan Marker Driver
         const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
         if (driverGps) {
             if (!driverLiveMarker) {
@@ -814,6 +817,7 @@
             }
         }
 
+        // 2. Dapatkan Marker Penumpang (Titik Biru Realtime)
         const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
         if (passengerGps) {
             if (!passengerPhoneMarker) {
@@ -822,25 +826,37 @@
                 passengerPhoneMarker.setLatLng([passengerGps.lat, passengerGps.lng]);
             }
         }
+
+        // 3. Kunci Tampilan Pin Merah & Bendera Finish: HANYA jika ada orderan aktif
+        if (order) {
+            if (pickupCoords) updateMarker('jemput', pickupCoords);
+            if (dropoffCoords) updateMarker('tujuan', dropoffCoords);
+        } else {
+            // Hapus Pin & Bendera jika tidak ada orderan yang diproses
+            if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+            if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+        }
     }
 
     function centerToMyLocation() {
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         map.setView(currentLatLng, 16);
 
-        if (!pickupCoords) {
-            pickupCoords = currentLatLng;
-            updateMarker('jemput', currentLatLng);
-        }
-        if (!dropoffCoords) {
-            dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
+        if (!pickupCoords) pickupCoords = currentLatLng;
+        if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
+
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        if (order) {
+            updateMarker('jemput', pickupCoords);
             updateMarker('tujuan', dropoffCoords);
         }
     }
 
     function updateMarker(type, latlng) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        const isPickupLocked = (order && order.status !== 'WAITING');
+        if (!order) return; // Kunci: Jangan buat marker jika tidak ada orderan
+
+        const isPickupLocked = (order.status !== 'WAITING');
 
         if (type === 'jemput') {
             if (pickupMarker) map.removeLayer(pickupMarker);
@@ -889,9 +905,11 @@
             const lng = parseFloat(match[2]);
             if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                 const newLatLng = L.latLng(lat, lng);
-                updateMarker(type, newLatLng);
+                pickupCoords = (type === 'jemput') ? newLatLng : pickupCoords;
+                dropoffCoords = (type === 'tujuan') ? newLatLng : dropoffCoords;
                 container.style.display = 'none';
                 fetchAddress(type, newLatLng);
+                calculateFare();
                 return;
             }
         }
@@ -911,8 +929,10 @@
                                 div.onclick = function() {
                                     document.getElementById(inputId).value = item.display_name.split(',').slice(0, 3).join(',');
                                     const selectedLatLng = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
-                                    updateMarker(type, selectedLatLng);
+                                    if (type === 'jemput') pickupCoords = selectedLatLng;
+                                    else dropoffCoords = selectedLatLng;
                                     container.style.display = 'none';
+                                    calculateFare();
                                 };
                                 container.appendChild(div);
                             });
@@ -938,11 +958,12 @@
                 return;
             }
             pickupCoords = center; 
-            updateMarker('jemput', center); 
+            fetchAddress('jemput', center);
         } else { 
             dropoffCoords = center; 
-            updateMarker('tujuan', center); 
+            fetchAddress('tujuan', center);
         }
+        calculateFare();
     }
 
     function fetchAddress(type, latlng) {
@@ -1008,11 +1029,8 @@
             const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
             pickupCoords = currentLatLng;
             dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-            updateMarker('jemput', pickupCoords);
-            updateMarker('tujuan', dropoffCoords);
         } else {
             dropoffCoords = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
-            updateMarker('tujuan', dropoffCoords);
         }
         calculateFare();
         alert("Batal penyesuaian alamat. Kembali ke lokasi & ongkos awal.");
@@ -1051,6 +1069,7 @@
         
         updatePassengerAppUI();
         updateDriverAppUI();
+        renderAllLiveMarkers();
     }
 
     function setOrderStatus(newStatus) {
@@ -1083,16 +1102,16 @@
 
         orderChannel.postMessage({ type: 'STATUS_CHANGE' });
         triggerVibration([500]);
-        
-        if (pickupCoords) updateMarker('jemput', pickupCoords);
 
         updateDriverAppUI();
         updatePassengerAppUI();
+        renderAllLiveMarkers();
         renderFinanceAndHistory();
     }
 
     function closeReceiptModal() {
         document.getElementById('receiptModal').style.display = 'none';
+        renderAllLiveMarkers();
     }
 
     function openExpenseModal() {
@@ -1205,6 +1224,7 @@
         window.open(gmapsUrl, '_blank');
     }
 
+    // UPDATE UI PENUMPANG + LOGIKA DRIVER SIBUK & ORDERAN SAMBUNG (RADIUS <= 3 KM)
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
@@ -1213,15 +1233,31 @@
         const pickupInput = document.getElementById('pickupLocation');
         const pickupLockLabel = document.getElementById('pickupLockLabel');
 
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
+
         if (!order) {
             statusBox.className = "status-box status-online";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Siap Menerima Order`;
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap Menerima Order`;
             btnSend.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Kirim Orderan Ke Driver`;
+            btnSend.disabled = false;
+            btnSend.classList.remove('btn-disabled');
             
             btnSetJemput.classList.remove('btn-disabled');
             pickupInput.disabled = false;
             pickupLockLabel.innerText = '';
             return;
+        }
+
+        // PERHITUNGAN RADIUS SAMBUNG ( <= 3 KM )
+        let isNextOrderAllowed = false;
+        if (order.status === 'ON_TRIP' && driverGps && order.dropoffLat) {
+            const dropLatLng = L.latLng(order.dropoffLat, order.dropoffLng);
+            const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
+            const distToDropMeters = map.distance(driverLatLng, dropLatLng);
+
+            if (distToDropMeters <= 3000) { // 3 Kilometer
+                isNextOrderAllowed = true;
+            }
         }
 
         const isLocked = (order.status !== 'WAITING');
@@ -1236,10 +1272,6 @@
             pickupLockLabel.innerText = '';
         }
 
-        if (isLocked) {
-            btnSend.innerHTML = `<i class="fa-solid fa-circle-check"></i> Setujui & Perbarui Tujuan Baru`;
-        }
-
         if (order.status === 'WAITING') {
             statusBox.className = "status-box status-process";
             statusBox.innerHTML = `<i class="fa-solid fa-clock"></i> Menunggu Konfirmasi Driver...`;
@@ -1250,8 +1282,13 @@
             statusBox.className = "status-box status-arrived";
             statusBox.innerHTML = `<i class="fa-solid fa-location-dot"></i> Driver Telah Tiba di Titik Jemput!`;
         } else if (order.status === 'ON_TRIP') {
-            statusBox.className = "status-box status-process";
-            statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Dalam Perjalanan Menuju Tujuan...`;
+            if (isNextOrderAllowed) {
+                statusBox.className = "status-box status-online";
+                statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Driver Mendekati Lokasi! (Orderan Sambung Online)`;
+            } else {
+                statusBox.className = "status-box status-busy";
+                statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Driver Sedang Mengantar Penumpangnya...`;
+            }
         }
     }
 
@@ -1260,7 +1297,7 @@
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
-            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 10px;">Belum ada orderan masuk...</p>';
+            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 10px;">Belum ada orderan masuk saat ini...</p>';
             return;
         }
 
