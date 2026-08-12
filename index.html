@@ -99,10 +99,11 @@
         .header {
             background-color: var(--bg-dark);
             color: var(--text-light);
-            padding: 12px 16px;
+            padding: 10px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            z-index: 1000;
         }
 
         .brand-title {
@@ -113,12 +114,29 @@
             gap: 6px;
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-header-pin {
+            background: #222;
+            color: var(--primary-green);
+            border: 1px solid #444;
+            padding: 5px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .btn-switch-role {
             background: #2a2a2a;
             color: var(--primary-green);
             border: 1px solid #444;
-            padding: 6px 10px;
-            border-radius: 12px;
+            padding: 5px 8px;
+            border-radius: 10px;
             font-size: 11px;
             font-weight: 700;
             cursor: pointer;
@@ -165,6 +183,10 @@
             border-radius: 10px;
             overflow: hidden;
             border: 1px solid var(--border-color);
+        }
+
+        .map-wrapper-tall {
+            height: 380px !important;
         }
 
         #map {
@@ -243,17 +265,17 @@
         }
 
         .content-area {
-            padding: 16px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
             flex: 1;
         }
 
         .status-box {
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             text-align: center;
             display: flex;
@@ -371,11 +393,11 @@
         .order-card-driver {
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 14px;
+            padding: 12px;
             background: #fff;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .btn-whatsapp {
@@ -430,44 +452,57 @@
         .btn-trip { background-color: var(--primary-green); color: #111; }
         .btn-finish { background-color: #27ae60; }
 
+        /* DESAIN KARTU KEUANGAN SIMETRIS DENGAN ANGKA BERSIH DI TENGAH */
         .finance-card {
             background: #121212;
             color: white;
-            padding: 14px;
+            padding: 12px;
             border-radius: 12px;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
 
-        .finance-grid {
+        .finance-grid-3cols {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            background: #222;
+            grid-template-columns: 1fr 1.2fr 1fr;
+            gap: 6px;
+            background: #1e1e1e;
             padding: 10px;
             border-radius: 8px;
-            font-size: 11px;
+            text-align: center;
+            align-items: center;
         }
 
         .clickable-finance-box {
             cursor: pointer;
-            padding: 6px;
+            padding: 6px 4px;
             border-radius: 6px;
             transition: background 0.2s;
+            background: #282828;
         }
 
         .clickable-finance-box:hover {
             background: #333;
         }
 
+        .net-income-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+        }
+
         .filter-select {
-            padding: 6px 10px;
+            padding: 4px 8px;
             border-radius: 6px;
             border: 1px solid #444;
             background: #222;
             color: white;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             outline: none;
         }
@@ -476,11 +511,13 @@
             background: var(--accent-red);
             color: white;
             border: none;
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: bold;
             cursor: pointer;
+            width: 100%;
+            margin-top: 6px;
         }
 
         .history-card {
@@ -522,6 +559,18 @@
             flex-direction: column;
             gap: 12px;
             overflow-y: auto;
+        }
+
+        /* BOTTOM SHEET RADAR ORDERAN SEPERTI GOOGLE MAPS */
+        .bottom-sheet-radar {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 16px 16px 0 0;
+            padding: 14px;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
     </style>
 </head>
@@ -607,7 +656,7 @@
         </div>
     </div>
 
-    <!-- MODAL POPUP RINCIAN HASIL NARIK & PENGELUARAN -->
+    <!-- MODAL POPUP RINCIAN HASIL NARIK & PENGELUARAN DENGAN TOMBOL CATAT PENGELUARAN DI DALAM -->
     <div id="historyDetailsModal" class="modal-overlay" style="display: none;">
         <div class="modal-detail-card">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -619,9 +668,15 @@
                 <!-- Isi rincian riwayat dimasukkan lewat JavaScript -->
             </div>
 
+            <div id="expenseActionContainer" style="display:none;">
+                <button class="expense-btn" onclick="openExpenseModalFromDetail()">
+                    <i class="fa-solid fa-plus-circle"></i> + Catat Pengeluaran Baru
+                </button>
+            </div>
+
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                 <button onclick="clearHistory()" style="background:none; border:none; color:red; font-size:11px; cursor:pointer;">
-                    <i class="fa-solid fa-trash"></i> Hapus Semua Riwayat
+                    <i class="fa-solid fa-trash"></i> Hapus Semua
                 </button>
                 <button onclick="closeHistoryDetailsModal()" style="padding:8px 16px; background:#333; color:white; border:none; border-radius:6px; font-size:12px; font-weight:bold;">Tutup</button>
             </div>
@@ -650,14 +705,20 @@
         </div>
     </div>
 
+    <!-- HEADER DENGAN TOMBOL UBAH PIN DI SAMPING MODE DRIVER -->
     <header class="header">
         <div class="brand-title">
             <i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i>
             <span>IqBike</span>
         </div>
-        <button class="btn-switch-role" onclick="showLoginOverlay()">
-            <i class="fa-solid fa-right-from-bracket"></i> <span id="currentRoleText">Ganti Mode</span>
-        </button>
+        <div class="header-actions">
+            <button id="btnHeaderPin" class="btn-header-pin" onclick="changeDriverPinDirect()" style="display:none;">
+                <i class="fa-solid fa-key"></i> Ubah PIN
+            </button>
+            <button class="btn-switch-role" onclick="showLoginOverlay()">
+                <i class="fa-solid fa-right-from-bracket"></i> <span id="currentRoleText">Ganti Mode</span>
+            </button>
+        </div>
     </header>
 
     <main class="content-area">
@@ -737,13 +798,11 @@
             </div>
         </div>
 
-        <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
+        <div id="driverView" style="display: none; flex-direction: column; gap: 10px;">
+            <!-- KARTU KEUANGAN SIMETRIS (ANGKA NET BERADA DI TENGAH) -->
             <div class="finance-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:12px; font-weight:bold; color:#aaa;"><i class="fa-solid fa-wallet"></i> KEUNTUNGAN BERSIH</span>
-                    <button onclick="changeDriverPinDirect()" style="background:#333; color:var(--primary-green); border:1px solid #555; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer;">
-                        <i class="fa-solid fa-key"></i> Ubah PIN
-                    </button>
+                    <span style="font-size:11px; font-weight:bold; color:#aaa;"><i class="fa-solid fa-wallet"></i> RINGKASAN KEUANGAN</span>
                     <select id="timeFilter" class="filter-select" onchange="renderFinanceAndHistory()">
                         <option value="today">Hari Ini</option>
                         <option value="week">Minggu Ini</option>
@@ -753,42 +812,43 @@
                     </select>
                 </div>
 
-                <div style="font-size: 22px; font-weight: 800; color: var(--primary-green);" id="netIncomeText">
-                    Rp 0
-                </div>
-
-                <div class="finance-grid">
+                <div class="finance-grid-3cols">
                     <div class="clickable-finance-box" onclick="openHistoryDetailsModal('INCOME')">
-                        <div style="color:#aaa;">Hasil Narik (+) <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></div>
-                        <div style="font-weight:bold; color:#27ae60;" id="grossIncomeText">Rp 0</div>
+                        <div style="color:#aaa; font-size:10px;">Hasil Narik (+) <i class="fa-solid fa-chevron-right" style="font-size:8px;"></i></div>
+                        <div style="font-weight:bold; color:#27ae60; font-size:12px;" id="grossIncomeText">Rp 0</div>
                     </div>
+
+                    <div class="net-income-box">
+                        <div style="color:#aaa; font-size:9px; font-weight:bold;">KEUNTUNGAN BERSIH</div>
+                        <div style="font-size: 15px; font-weight: 800; color: var(--primary-green);" id="netIncomeText">Rp 0</div>
+                    </div>
+
                     <div class="clickable-finance-box" onclick="openHistoryDetailsModal('EXPENSE')">
-                        <div style="color:#aaa;">Pengeluaran (-) <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></div>
-                        <div style="font-weight:bold; color:#eb5757;" id="totalExpenseText">Rp 0</div>
+                        <div style="color:#aaa; font-size:10px;">Pengeluaran (-) <i class="fa-solid fa-chevron-right" style="font-size:8px;"></i></div>
+                        <div style="font-weight:bold; color:#eb5757; font-size:12px;" id="totalExpenseText">Rp 0</div>
                     </div>
                 </div>
-
-                <button class="expense-btn" onclick="openExpenseModal()">
-                    <i class="fa-solid fa-minus-circle"></i> + Catat Pengeluaran (Bensin/Parkir/Makan)
-                </button>
             </div>
 
-            <!-- CONTAINER PETA UTAMA UNTUK DRIVER -->
-            <div id="driverMapContainer" class="map-wrapper">
+            <!-- CONTAINER PETA PANJANG STYLE GOOGLE MAPS -->
+            <div id="driverMapContainer" class="map-wrapper map-wrapper-tall">
                 <!-- Peta disisipkan via JS -->
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                <span style="font-weight: 700; font-size: 13px;">
-                    <i class="fa-solid fa-list-check"></i> Radar Orderan Realtime
-                </span>
-                <span style="background:#8cc63f; color:#111; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:bold;">
-                    <i class="fa-solid fa-signal"></i> GPS ONLINE
-                </span>
-            </div>
+            <!-- PANEL RADAR ORDERAN REALTIME DALAM BENTUK BOTTOM SHEET GOOGLE MAPS -->
+            <div class="bottom-sheet-radar">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight: 800; font-size: 13px; color:#222;">
+                        <i class="fa-solid fa-list-check"></i> Radar Orderan Realtime
+                    </span>
+                    <span style="background:#8cc63f; color:#111; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:bold;">
+                        <i class="fa-solid fa-signal"></i> GPS ONLINE
+                    </span>
+                </div>
 
-            <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 10px;">
-                <p style="font-size: 12px; color: #888; text-align: center; margin-top: 10px;">Belum ada orderan masuk saat ini...</p>
+                <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                    <p style="font-size: 12px; color: #888; text-align: center; margin: 10px 0;">Belum ada orderan masuk saat ini...</p>
+                </div>
             </div>
         </div>
     </main>
@@ -1089,12 +1149,14 @@
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
+            document.getElementById('btnHeaderPin').style.display = 'none';
             mountMapToContainer('passengerMapWrapper');
             updatePassengerAppUI();
             renderPassengerHistory();
         } else {
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
+            document.getElementById('btnHeaderPin').style.display = 'inline-block';
             document.getElementById('centerPinContainer').style.display = 'none';
             document.getElementById('btnConfirmLocation').style.display = 'none';
             mountMapToContainer('driverMapContainer');
@@ -1448,6 +1510,11 @@
         document.getElementById('expenseModal').style.display = 'flex';
     }
 
+    function openExpenseModalFromDetail() {
+        closeHistoryDetailsModal();
+        openExpenseModal();
+    }
+
     function closeExpenseModal() {
         document.getElementById('expenseModal').style.display = 'none';
     }
@@ -1481,14 +1548,20 @@
         alert("Pengeluaran berhasil dicatat!");
     }
 
-    // MODAL KHUSUS POPUP TAMPILAN RINCIAN RIWAYAT
     function openHistoryDetailsModal(filterType) {
         const history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
         const modalContainer = document.getElementById('historyDetailsListContainer');
         const modalTitle = document.getElementById('historyModalTitle');
+        const expenseActionBtn = document.getElementById('expenseActionContainer');
 
         modalTitle.innerText = (filterType === 'INCOME') ? "Rincian Hasil Narik (+)" : "Rincian Pengeluaran (-)";
         modalContainer.innerHTML = '';
+
+        if (filterType === 'EXPENSE') {
+            expenseActionBtn.style.display = 'block';
+        } else {
+            expenseActionBtn.style.display = 'none';
+        }
 
         const filteredList = history.filter(item => {
             if (filterType === 'INCOME') return item.type !== 'EXPENSE';
@@ -1496,7 +1569,7 @@
         });
 
         if (filteredList.length === 0) {
-            modalContainer.innerHTML = '<p style="font-size:12px; color:#888; text-align:center; padding:20px;">Belum ada riwayat tercatat.</p>';
+            modalContainer.innerHTML = '<p style="font-size:12px; color:#888; text-align:center; padding:16px;">Belum ada riwayat tercatat.</p>';
         } else {
             filteredList.forEach(item => {
                 const card = document.createElement('div');
@@ -1617,7 +1690,7 @@
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
-            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin-top: 10px;">Belum ada orderan masuk saat ini...</p>';
+            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin: 10px 0;">Belum ada orderan masuk saat ini...</p>';
             return;
         }
 
