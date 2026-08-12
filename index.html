@@ -1371,6 +1371,7 @@
         calculateFare();
     }
 
+    // PESAN WA PENUMPANG KE DRIVER DILENGKAPI DENGAN TAUTAN SHARE LOKASI MAPS
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
@@ -1421,14 +1422,18 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
+        // TAUTAN GOOGLE MAPS TITIK JEMPUT
+        const pickupLocationUrl = `https://maps.google.com/?q=${pickupCoords.lat},${pickupCoords.lng}`;
+
         const waText = `Halo Driver iqBike, saya mau order ojek online:\n\n` +
-                       `👤 Nama: ${name}\n` +
-                       `📱 WA Penumpang: ${formattedPhone}\n` +
-                       `📍 Jemput: ${pickup}\n` +
-                       `🏁 Tujuan: ${dropoff}\n` +
-                       `⏱️ Dijemput: Secepatnya / Instan\n` +
-                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n` +
-                       `📝 Catatan: ${note}\n\n` +
+                       `👤 *Nama:* ${name}\n` +
+                       `📱 *WA Penumpang:* ${formattedPhone}\n` +
+                       `📍 *Jemput:* ${pickup}\n` +
+                       `🗺️ *Link Titik Jemput:* ${pickupLocationUrl}\n` +
+                       `🏁 *Tujuan:* ${dropoff}\n` +
+                       `⏱️ *Dijemput:* Secepatnya / Instan\n` +
+                       `💰 *Estimasi Ongkos:* Rp ${computedTotalFare.toLocaleString('id-ID')}\n` +
+                       `📝 *Catatan:* ${note}\n\n` +
                        `Mohon konfirmasinya ya, terima kasih!`;
 
         const directWaUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
@@ -1500,7 +1505,6 @@
         });
     }
 
-    // FUNGSI WA DRIVER DENGAN TAUTAN LOKASI GPS TERKINI
     function openPassengerWa(phone, name) {
         if (!phone) {
             alert("Nomor WhatsApp penumpang tidak ditemukan!");
