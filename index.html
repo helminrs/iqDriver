@@ -473,6 +473,7 @@
         .btn-arrived { background-color: var(--accent-orange); }
         .btn-trip { background-color: var(--primary-green); color: #111; }
         .btn-finish { background-color: #27ae60; }
+        .btn-driver-cancel { background-color: #eb5757; color: #white; margin-top: 4px; }
 
         .finance-card {
             background: #121212;
@@ -1623,13 +1624,17 @@
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
 
+        if (order.status !== 'WAITING') {
+            alert("⚠️ Pembatalan ditolak. Driver sudah memproses pesanan. Silakan hubungi driver via WhatsApp.");
+            return;
+        }
+
         if (confirm("Apakah Anda yakin ingin membatalkan pesanan? Driver harus diberitahu via WhatsApp.")) {
-            // 1. Catat log pembatalan ke riwayat pengeluaran driver (Nominal Rp 0)
             let history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
             const cancelLog = {
                 id: Date.now(),
                 type: 'EXPENSE',
-                note: `PESANAN DIBATALKAN: ${order.passengerName} (${order.passengerPhone}) - Jemput: ${order.pickup.split(',')[0]}`,
+                note: `PESANAN DIBATALKAN OLEH PENUMPANG: ${order.passengerName} (${order.passengerPhone}) - Jemput: ${order.pickup.split(',')[0]}`,
                 amount: 0,
                 timestamp: Date.now(),
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
@@ -1637,13 +1642,11 @@
             history.unshift(cancelLog);
             localStorage.setItem('iqbike_history', JSON.stringify(history));
 
-            // 2. Siapkan teks WhatsApp pembatalan
             const waText = `⚠️ *INFO PEMBATALAN ORDER*\n\n` +
                            `Mohon maaf Driver, pesanan atas nama *${order.passengerName}* (${order.passengerPhone}) telah dibatalkan oleh penumpang.\n\n` +
                            `📍 *Titik Jemput:* ${order.pickup}`;
             const waUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
             
-            // 3. Bersihkan pesanan aktif
             localStorage.removeItem('iqbike_active_order');
             orderChannel.postMessage({ type: 'STATUS_CHANGE' });
             
@@ -1652,7 +1655,41 @@
             updateDriverAppUI();
             renderFinanceAndHistory();
             
-            // 4. Buka WhatsApp agar pesan pembatalan pasti terkirim ke driver
+            window.location.href = waUrl;
+        }
+    }
+
+    // FUNGSI PEMBATALAN OLEH DRIVER (KETIKA DI LOKASI PENUMPANG ISENG/BLOKIR WA)
+    function driverCancelActiveOrder() {
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        if (!order) return;
+
+        if (confirm("Batalkan pesanan ini karena penumpang iseng / tidak bisa dihubungi?")) {
+            let history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
+            const cancelLog = {
+                id: Date.now(),
+                type: 'EXPENSE',
+                note: `CANCEL OLEH DRIVER (ISENG/BLOKIR): ${order.passengerName} (${order.passengerPhone})`,
+                amount: 0,
+                timestamp: Date.now(),
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            };
+            history.unshift(cancelLog);
+            localStorage.setItem('iqbike_history', JSON.stringify(history));
+
+            const waText = `⚠️ *INFO PEMBATALAN OLEH DRIVER*\n\n` +
+                           `Driver membatalkan pesanan atas nama *${order.passengerName}* karena kendala di lokasi/nomor WhatsApp tidak aktif/diblokir.\n\n` +
+                           `📍 *Titik Jemput:* ${order.pickup}`;
+            const waUrl = `whatsapp://send?phone=${order.passengerPhone}&text=${encodeURIComponent(waText)}`;
+
+            localStorage.removeItem('iqbike_active_order');
+            orderChannel.postMessage({ type: 'STATUS_CHANGE' });
+
+            updateDriverAppUI();
+            updatePassengerAppUI();
+            renderFinanceAndHistory();
+
+            alert("Pesanan dibatalkan oleh driver. Anda siap menerima orderan baru.");
             window.location.href = waUrl;
         }
     }
@@ -1966,7 +2003,11 @@
         document.getElementById('pickupLocation').value = order.pickup || '';
         document.getElementById('dropoffLocation').value = order.dropoff || '';
 
-        btnCancel.style.display = 'flex';
+        if (order.status === 'WAITING') {
+            btnCancel.style.display = 'flex';
+        } else {
+            btnCancel.style.display = 'none';
+        }
 
         if (order.status !== 'WAITING') {
             btnJemput.disabled = true;
@@ -2018,6 +2059,8 @@
 
         let actionBtnHTML = '';
         let navBtnHTML = '';
+        let driverCancelBtnHTML = '';
+
         let waBtnHTML = `
             <button class="btn-whatsapp" onclick="openPassengerWa('${order.passengerPhone}', '${order.passengerName}')">
                 <i class="fa-brands fa-whatsapp"></i> Hubungi Penumpang via WA (${order.passengerPhone})
@@ -2038,10 +2081,20 @@
                 <button class="driver-step-btn btn-arrived" onclick="setOrderStatus('ARRIVED')">
                     <i class="fa-solid fa-location-dot"></i> Saya Sudah Tiba di Titik Jemput
                 </button>`;
+            // Driver diberikan hak cancel saat OTW jemput jika penumpang iseng/tidak merespons
+            driverCancelBtnHTML = `
+                <button class="driver-step-btn btn-driver-cancel" onclick="driverCancelActiveOrder()">
+                    <i class="fa-solid fa-xmark"></i> Batalkan Pesanan (Penumpang Iseng / Blokir WA)
+                </button>`;
         } else if (order.status === 'ARRIVED') {
             actionBtnHTML = `
                 <button class="driver-step-btn btn-trip" onclick="setOrderStatus('ON_TRIP')">
                     <i class="fa-solid fa-motorcycle"></i> Mulai Perjalanan (Berangkat)
+                </button>`;
+            // Driver juga bisa cancel saat sudah di lokasi jika penumpang fiktif
+            driverCancelBtnHTML = `
+                <button class="driver-step-btn btn-driver-cancel" onclick="driverCancelActiveOrder()">
+                    <i class="fa-solid fa-xmark"></i> Batalkan Pesanan (Penumpang Iseng / Blokir WA)
                 </button>`;
         } else if (order.status === 'ON_TRIP') {
             navBtnHTML = `
@@ -2068,6 +2121,7 @@
                 ${waBtnHTML}
                 ${navBtnHTML}
                 ${actionBtnHTML}
+                ${driverCancelBtnHTML}
             </div>
         `;
 
