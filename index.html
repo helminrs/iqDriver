@@ -692,6 +692,7 @@
 
     function closeDriverPinModal() {
         document.getElementById('driverPinModal').style.display = 'none';
+        document.getElementById('inputDriverPin').value = '';
     }
 
     function verifyDriverPin() {
@@ -712,6 +713,11 @@
         const waUrl = `whatsapp://send?phone=${waAdminPhone}&text=${encodeURIComponent(message)}`;
 
         closeDriverPinModal();
+        
+        // PASTI KAN DIBERSIHKAN FORM RESET BILA SEBELUMNYA PERNAH TERISI
+        document.getElementById('inputMasterKey').value = '';
+        document.getElementById('inputNewPin').value = '';
+        
         document.getElementById('resetPinModal').style.display = 'flex';
         
         window.location.href = waUrl;
@@ -719,6 +725,8 @@
 
     function closeResetPinModal() {
         document.getElementById('resetPinModal').style.display = 'none';
+        document.getElementById('inputMasterKey').value = '';
+        document.getElementById('inputNewPin').value = '';
     }
 
     function saveResetPin() {
@@ -758,7 +766,6 @@
         }
     }
 
-    // SIMPAN USER ROLE KE LOCALSTORAGE SUPAYA SAAT DI REFRESH TIDAK KEMBALI KE HOMEPAGE
     function selectUserRole(role) {
         userRole = role;
         localStorage.setItem('iqbike_saved_role', role);
@@ -1324,7 +1331,6 @@
         renderFinanceAndHistory();
     };
 
-    // MEMASIKAN SESI TERAKHIR DIBUKA SAAT REFRESH
     window.onload = function() {
         initMap();
         
