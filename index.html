@@ -148,15 +148,15 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .btn-pin-mode {
-            padding: 10px;
+            padding: 8px;
             border: 1px solid #81d4fa;
             background: #f0f8ff;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
@@ -184,10 +184,12 @@
             cursor: not-allowed;
         }
 
+        /* Peta Penumpang Diperbesar Mengisi Ruang (Flex 1) */
         .map-wrapper {
             position: relative;
             width: 100%;
-            height: 240px;
+            flex: 1;
+            min-height: 280px;
             background-color: #e5e3df;
             border-radius: 10px;
             overflow: hidden;
@@ -286,6 +288,15 @@
             overflow-y: auto;
         }
 
+        .passenger-view-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            gap: 8px;
+        }
+
         .driver-view-container {
             display: flex;
             flex-direction: column;
@@ -304,6 +315,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
+            flex-shrink: 0;
         }
 
         .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
@@ -313,15 +325,17 @@
 
         .form-row-2cols {
             display: grid;
-            grid-template-columns: 1.1fr 1.4fr;
+            grid-template-columns: 1fr 1.3fr;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
             position: relative;
+            flex-shrink: 0;
         }
 
         .form-label {
@@ -333,11 +347,12 @@
 
         .form-input {
             width: 100%;
-            padding: 9px 10px;
+            padding: 8px 10px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             font-size: 12px;
             outline: none;
+            background: #fff;
         }
 
         .search-results {
@@ -367,16 +382,17 @@
         .fare-card {
             background: #f8f9fa;
             border: 1px dashed var(--primary-green);
-            padding: 8px;
+            padding: 6px;
             border-radius: 8px;
             text-align: center;
             font-size: 12px;
             font-weight: 700;
+            flex-shrink: 0;
         }
 
         .btn-reset {
             width: 100%;
-            padding: 9px;
+            padding: 8px;
             background-color: #ffffff;
             color: var(--accent-red);
             border: 1px solid var(--accent-red);
@@ -404,23 +420,24 @@
 
         .btn-submit {
             width: 100%;
-            padding: 12px;
+            padding: 11px;
             background-color: var(--whatsapp-green);
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 800;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .btn-history-toggle {
             width: 100%;
-            padding: 9px;
+            padding: 8px;
             background-color: #f0f2f5;
             color: #333;
             border: 1px solid #ccc;
@@ -853,12 +870,12 @@
     </header>
 
     <main class="content-area">
-        <div id="passengerView" style="display: none; flex-direction: column; gap: 10px; padding: 12px;">
+        <!-- MODE PENUMPANG DENGAN PETA PROPOSIONAL MENGISI RUANG BAWAH -->
+        <div id="passengerView" class="passenger-view-container" style="display: none;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
             </div>
 
-            <!-- NAMA & NO WA SEJAJAR DALAM 1 BARIS -->
             <div class="form-row-2cols">
                 <div class="form-group">
                     <label class="form-label">Nama <span style="color:red">*</span></label>
@@ -904,10 +921,10 @@
             </div>
 
             <div class="fare-card">
-                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 14px;">Rp 0</span>
+                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 13px;">Rp 0</span>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:5px; flex-shrink:0;">
                 <button id="btnSendOrder" class="btn-submit" type="button" onclick="handleMainActionButton()">
                     <i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver
                 </button>
