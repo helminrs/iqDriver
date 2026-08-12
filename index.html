@@ -124,7 +124,7 @@
             cursor: pointer;
         }
 
-        /* TOMBOL SELEKTOR MODE PIN DI ATAS PETA */
+        /* MODE SELEKTOR BUTTONS */
         .pin-mode-selector {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -137,7 +137,7 @@
             border: 1px solid #81d4fa;
             background: #f0f8ff;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
@@ -148,7 +148,6 @@
             transition: all 0.2s ease;
         }
 
-        /* TOMBOL AKTIF WARNA BIRU SOLID SAMA SEPERTI SCREENSHOT */
         .btn-pin-mode.active-mode {
             background: #0288d1 !important;
             color: #ffffff !important;
@@ -159,11 +158,11 @@
             color: #ffffff !important;
         }
 
-        /* MAP & CENTER PIN STYLE */
+        /* MAP & CENTER PICKER */
         .map-wrapper {
             position: relative;
             width: 100%;
-            height: 250px;
+            height: 260px;
             background-color: #e5e3df;
             border-radius: 10px;
             overflow: hidden;
@@ -182,7 +181,7 @@
             transform: translate(-50%, -100%);
             z-index: 1000;
             pointer-events: none;
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
         }
@@ -205,6 +204,26 @@
         .center-pin-icon {
             font-size: 32px;
             filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.4));
+        }
+
+        .btn-confirm-location {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0288d1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            z-index: 1001;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 6px;
         }
 
         .btn-my-location {
@@ -295,9 +314,7 @@
             cursor: pointer;
         }
 
-        .search-item:hover {
-            background-color: #f4f5f7;
-        }
+        .search-item:hover { background-color: #f4f5f7; }
 
         .fare-card {
             background: #f8f9fa;
@@ -611,20 +628,22 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">PILIH MODE PIN PETA</label>
+                <label class="form-label">PILIH & ATUR TITIK LOKASI DI PETA</label>
                 <div class="pin-mode-selector">
-                    <button id="btnModeJemput" class="btn-pin-mode active-mode" onclick="switchPinMode('jemput')">
-                        <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Pin JEMPUT
+                    <button id="btnModeJemput" class="btn-pin-mode" onclick="togglePinMode('jemput')">
+                        <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Set JEMPUT
                     </button>
-                    <button id="btnModeTujuan" class="btn-pin-mode" onclick="switchPinMode('tujuan')">
-                        <i class="fa-solid fa-flag-checkered" style="color:#111;"></i> Pin TUJUAN
+                    <button id="btnModeTujuan" class="btn-pin-mode" onclick="togglePinMode('tujuan')">
+                        <i class="fa-solid fa-flag-checkered" style="color:#111;"></i> Set TUJUAN
                     </button>
                 </div>
             </div>
 
-            <!-- CONTAINER PETA DENGAN PIN TETAP DI TENGAH -->
             <div class="map-wrapper">
                 <div id="map"></div>
+                <button id="btnConfirmLocation" class="btn-confirm-location" onclick="confirmLocationSelection()">
+                    <i class="fa-solid fa-check-circle"></i> OK / SIMPAN TITIK
+                </button>
                 <div id="centerPinContainer" class="center-pin-container">
                     <div id="centerPinLabel" class="center-pin-label">Geser peta...</div>
                     <div id="centerPinIcon" class="center-pin-icon">
@@ -638,13 +657,13 @@
 
             <div class="form-group">
                 <label class="form-label">Lokasi Penjemputan <span style="color:red">*</span></label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Geser peta / ketik alamat..." oninput="handleSearchOrPaste('jemput')">
+                <input type="text" id="pickupLocation" class="form-input" placeholder="Pilih lokasi jemput..." oninput="handleSearchOrPaste('jemput')">
                 <div id="pickupSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Lokasi Tujuan <span style="color:red">*</span></label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Geser peta / ketik alamat..." oninput="handleSearchOrPaste('tujuan')">
+                <input type="text" id="dropoffLocation" class="form-input" placeholder="Pilih lokasi tujuan..." oninput="handleSearchOrPaste('tujuan')">
                 <div id="dropoffSearchResults" class="search-results"></div>
             </div>
 
@@ -759,8 +778,10 @@
     }
 
     let map;
-    let currentPinMode = 'jemput';
+    let currentPinMode = null; // null | 'jemput' | 'tujuan'
     let pickupCoords = null, dropoffCoords = null;
+    let pickupMarker = null, dropoffMarker = null;
+    let driverLiveMarker = null, passengerLiveMarker = null;
     let reverseGeocodeTimeout = null;
 
     const savedLastPos = JSON.parse(localStorage.getItem('iqbike_last_known_pos'));
@@ -773,6 +794,27 @@
     let searchDebounce = null;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
+
+    // MARKER ICONS REALTIME DENGAN WARNA PEMBEDA
+    const redPinIcon = L.divIcon({
+        html: '<i class="fa-solid fa-location-dot" style="font-size:26px; color:#eb5757; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"></i>',
+        iconSize: [26, 26], iconAnchor: [13, 26], className: 'custom-pin'
+    });
+
+    const finishFlagIcon = L.divIcon({
+        html: '<i class="fa-solid fa-flag-checkered" style="font-size:22px; color:#111; background:#fff; padding:2px; border-radius:50%; border:1px solid #111; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></i>',
+        iconSize: [24, 24], iconAnchor: [12, 12], className: 'custom-flag'
+    });
+
+    const driverMotorIcon = L.divIcon({
+        html: '<i class="fa-solid fa-motorcycle" style="font-size:12px; color:#fff; background:#27ae60; padding:5px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 2px 6px rgba(0,0,0,0.4);"></i>',
+        iconSize: [24, 24], iconAnchor: [12, 12], className: 'driver-motor-icon'
+    });
+
+    const passengerBlueDotIcon = L.divIcon({
+        html: '<i class="fa-solid fa-circle" style="font-size:14px; color:#0288d1; background:#ffffff; padding:3px; border-radius:50%; border:2px solid #0288d1; box-shadow:0 2px 6px rgba(0,0,0,0.4);"></i>',
+        iconSize: [20, 20], iconAnchor: [10, 10], className: 'passenger-blue-icon'
+    });
 
     function triggerVibration(pattern) {
         if ("vibrate" in navigator) navigator.vibrate(pattern);
@@ -794,7 +836,7 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         map.on('movestart', () => {
-            if (userRole === 'penumpang') {
+            if (currentPinMode) {
                 document.getElementById('centerPinLabel').innerText = "Menggeser lokasi...";
             }
         });
@@ -810,7 +852,7 @@
                 btn.style.color = 'var(--accent-blue)';
             }
 
-            if (userRole === 'penumpang') {
+            if (currentPinMode) {
                 handleMapCenterChange(center);
             }
         });
@@ -818,12 +860,21 @@
         startLiveGpsTracking();
     }
 
-    // FUNGSI BERPINDAH MODE PIN DENGAN TAMPILAN BIRU SAMA SEPERTI SCREENSHOT
-    function switchPinMode(mode) {
+    function togglePinMode(mode) {
+        if (currentPinMode === mode) {
+            confirmLocationSelection();
+            return;
+        }
+
         currentPinMode = mode;
         const btnJemput = document.getElementById('btnModeJemput');
         const btnTujuan = document.getElementById('btnModeTujuan');
         const pinIcon = document.getElementById('centerPinIcon');
+        const centerPinContainer = document.getElementById('centerPinContainer');
+        const btnConfirm = document.getElementById('btnConfirmLocation');
+
+        centerPinContainer.style.display = 'flex';
+        btnConfirm.style.display = 'flex';
 
         if (mode === 'jemput') {
             btnJemput.className = 'btn-pin-mode active-mode';
@@ -836,6 +887,17 @@
             pinIcon.innerHTML = '<i class="fa-solid fa-flag-checkered" style="color:#111;"></i>';
             if (dropoffCoords) map.panTo(dropoffCoords);
         }
+
+        handleMapCenterChange(map.getCenter());
+    }
+
+    function confirmLocationSelection() {
+        currentPinMode = null;
+        document.getElementById('btnModeJemput').className = 'btn-pin-mode';
+        document.getElementById('btnModeTujuan').className = 'btn-pin-mode';
+        document.getElementById('centerPinContainer').style.display = 'none';
+        document.getElementById('btnConfirmLocation').style.display = 'none';
+        renderFixedMarkers();
     }
 
     function handleMapCenterChange(centerLatLng) {
@@ -853,15 +915,34 @@
                     if (currentPinMode === 'jemput') {
                         pickupCoords = centerLatLng;
                         document.getElementById('pickupLocation').value = placeName;
-                    } else {
+                    } else if (currentPinMode === 'tujuan') {
                         dropoffCoords = centerLatLng;
                         document.getElementById('dropoffLocation').value = placeName;
                     }
+                    renderFixedMarkers();
                     calculateFare();
                 }).catch(() => {
                     document.getElementById('centerPinLabel').innerText = "Titik Koordinat";
                 });
-        }, 400);
+        }, 300);
+    }
+
+    function renderFixedMarkers() {
+        if (pickupCoords) {
+            if (!pickupMarker) {
+                pickupMarker = L.marker(pickupCoords, {icon: redPinIcon}).addTo(map);
+            } else {
+                pickupMarker.setLatLng(pickupCoords);
+            }
+        }
+
+        if (dropoffCoords) {
+            if (!dropoffMarker) {
+                dropoffMarker = L.marker(dropoffCoords, {icon: finishFlagIcon}).addTo(map);
+            } else {
+                dropoffMarker.setLatLng(dropoffCoords);
+            }
+        }
     }
 
     function showLoginOverlay() {
@@ -955,13 +1036,13 @@
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
-            document.getElementById('centerPinContainer').style.display = 'flex';
             updatePassengerAppUI();
             renderPassengerHistory();
         } else {
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
             document.getElementById('centerPinContainer').style.display = 'none';
+            document.getElementById('btnConfirmLocation').style.display = 'none';
             updateDriverAppUI();
             renderFinanceAndHistory();
         }
@@ -988,8 +1069,29 @@
                     localStorage.setItem('iqbike_driver_gps', JSON.stringify(currentPos));
                 }
 
+                renderAllRealtimeMarkers();
                 orderChannel.postMessage({ type: 'GPS_UPDATE' });
             }, null, { enableHighAccuracy: true });
+        }
+    }
+
+    function renderAllRealtimeMarkers() {
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
+        if (driverGps) {
+            if (!driverLiveMarker) {
+                driverLiveMarker = L.marker([driverGps.lat, driverGps.lng], {icon: driverMotorIcon, zIndexOffset: 1000}).addTo(map);
+            } else {
+                driverLiveMarker.setLatLng([driverGps.lat, driverGps.lng]);
+            }
+        }
+
+        const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
+        if (passengerGps) {
+            if (!passengerLiveMarker) {
+                passengerLiveMarker = L.marker([passengerGps.lat, passengerGps.lng], {icon: passengerBlueDotIcon, zIndexOffset: 900}).addTo(map);
+            } else {
+                passengerLiveMarker.setLatLng([passengerGps.lat, passengerGps.lng]);
+            }
         }
     }
 
@@ -997,6 +1099,10 @@
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         map.setView(currentLatLng, 16);
         document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
+
+        if (currentPinMode) {
+            handleMapCenterChange(currentLatLng);
+        }
     }
 
     function handleSearchOrPaste(type) {
@@ -1007,8 +1113,14 @@
 
         if (!query) {
             container.style.display = 'none';
-            if (type === 'jemput') pickupCoords = null;
-            if (type === 'tujuan') dropoffCoords = null;
+            if (type === 'jemput') {
+                pickupCoords = null;
+                if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+            }
+            if (type === 'tujuan') {
+                dropoffCoords = null;
+                if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+            }
             calculateFare();
             return;
         }
@@ -1025,6 +1137,7 @@
                 else dropoffCoords = newLatLng;
                 map.panTo(newLatLng);
                 container.style.display = 'none';
+                renderFixedMarkers();
                 calculateFare();
                 return;
             }
@@ -1049,6 +1162,7 @@
                                     else dropoffCoords = selectedLatLng;
                                     map.panTo(selectedLatLng);
                                     container.style.display = 'none';
+                                    renderFixedMarkers();
                                     calculateFare();
                                 };
                                 container.appendChild(div);
@@ -1095,6 +1209,9 @@
         document.getElementById('pickupLocation').value = '';
         document.getElementById('dropoffLocation').value = '';
         pickupCoords = null; dropoffCoords = null;
+        if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+        if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+        confirmLocationSelection();
         calculateFare();
     }
 
@@ -1106,12 +1223,12 @@
         const note = document.getElementById('passengerNote').value.trim() || "-";
 
         if (!pickup || !pickupCoords) {
-            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap klik tombol 'Pin JEMPUT' lalu geser peta ke titik penjemputan.");
+            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap klik tombol 'Set JEMPUT' untuk menentukan titik jemput.");
             return;
         }
 
         if (!dropoff || !dropoffCoords) {
-            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap klik tombol 'Pin TUJUAN' lalu geser peta ke titik tujuan.");
+            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap klik tombol 'Set TUJUAN' untuk menentukan titik tujuan.");
             return;
         }
 
@@ -1195,8 +1312,9 @@
         pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
 
+        renderFixedMarkers();
         calculateFare();
-        switchPinMode('jemput');
+        map.fitBounds(L.latLngBounds(pickupCoords, dropoffCoords), {padding: [40, 40]});
         alert("Rute berhasil ditukar untuk perjalanan pulang (PP)!");
     }
 
@@ -1489,6 +1607,7 @@
         updateDriverAppUI();
         renderFinanceAndHistory();
         renderPassengerHistory();
+        renderAllRealtimeMarkers();
     };
 
     window.onload = function() {
