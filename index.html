@@ -778,7 +778,7 @@
     }
 
     let map;
-    let currentPinMode = null; // null | 'jemput' | 'tujuan'
+    let currentPinMode = null;
     let pickupCoords = null, dropoffCoords = null;
     let pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
@@ -795,7 +795,6 @@
 
     const orderChannel = new BroadcastChannel('iqbike_system');
 
-    // MARKER ICONS REALTIME DENGAN WARNA PEMBEDA
     const redPinIcon = L.divIcon({
         html: '<i class="fa-solid fa-location-dot" style="font-size:26px; color:#eb5757; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"></i>',
         iconSize: [26, 26], iconAnchor: [13, 26], className: 'custom-pin'
@@ -1215,6 +1214,7 @@
         calculateFare();
     }
 
+    // PENGIRIMAN PESAN WHATSAPP DENGAN IKON LENGKAP BEDA-BEDA
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
@@ -1243,7 +1243,6 @@
         }
 
         const formattedPhone = formatWaNumber(rawPhone);
-        const distKm = (map.distance(pickupCoords, dropoffCoords)/1000).toFixed(1);
 
         const newOrder = {
             id: Date.now(), 
@@ -1266,18 +1265,16 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        const waText = `PESANAN OJEG WA BARU!\n` +
-                       `------------------------------------\n` +
-                       `🔹 Nama: ${name}\n` +
-                       `🔹 WA Penumpang: ${formattedPhone}\n` +
-                       `🔹 Jemput: ${pickup}\n` +
-                       `🔹 Tujuan: ${dropoff}\n` +
-                       `🔹 Jarak Estimasi Peta: ${distKm} km\n` +
-                       `🔹 Total Tarif: Rp${computedTotalFare.toLocaleString('id-ID')}\n` +
-                       `🔹 Bayar: Tunai (Cash)\n` +
-                       `🔹 Catatan: ${note}\n` +
-                       `------------------------------------\n` +
-                       `Terima kasih!`;
+        // STRUKTUR PESAN WA DENGAN EMOJI BERBEDA LENGKAP
+        const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
+                       `👤 Nama: ${name}\n` +
+                       `📱 WA Penumpang: ${formattedPhone}\n` +
+                       `📍 Jemput: ${pickup}\n` +
+                       `🏁 Tujuan: ${dropoff}\n` +
+                       `⏱️ Dijemput: Secepatnya / Instan\n` +
+                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n` +
+                       `📝 Catatan: ${note}\n\n` +
+                       `Mohon konfirmasinya ya, terima kasih!`;
 
         const directWaUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
 
