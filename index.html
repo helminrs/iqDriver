@@ -134,7 +134,6 @@
             height: 100%;
         }
 
-        /* INDIKATOR TOMBOL GPS (BIRU = CENTER, MERAH = OFF-CENTER) */
         .btn-my-location {
             position: absolute;
             bottom: 12px;
@@ -630,9 +629,7 @@
 </div>
 
 <script>
-    // URL FIREBASE REALTIME DATABASE UNTUK MENGHUBUNGKAN APLIKASI ANTAR HP REALTIME
     const FIREBASE_DB_URL = "https://iqbike-default-rtdb.firebaseio.com/";
-
     const ADMIN_MASTER_KEY = "9922";
 
     function getStoredPin() {
@@ -643,7 +640,13 @@
     let pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerPhoneMarker = null;
     let pickupCoords = null, dropoffCoords = null;
-    let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
+    
+    // PEMPERBAIKAN REFRESH: BACA KOORDINAT DARI MEMORI HP DULU JIKA ADA (MENCEGAH PETA LOMPAT)
+    const savedLastPos = JSON.parse(localStorage.getItem('iqbike_last_known_pos'));
+    let userCurrentLat = savedLastPos ? savedLastPos.lat : -7.02443;
+    let userCurrentLng = savedLastPos ? savedLastPos.lng : 107.58556;
+    
+    let isInitialMapCenterDone = false; // FLAG AGAR KAMERA HANYA GESER SEKALI SAAT LOAD
     let userRole = null; 
     let computedTotalFare = 9000;
     let searchDebounce = null;
@@ -672,7 +675,6 @@
         if ("vibrate" in navigator) navigator.vibrate(pattern);
     }
 
-    // FUNGSI API FIREBASE UNTUK REALTIME ANTAR HP
     function syncFirebaseData(path, data) {
         fetch(`${FIREBASE_DB_URL}${path}.json`, {
             method: 'PUT',
@@ -700,32 +702,21 @@
     }
 
     function initMap() {
+        // LANGSUNG LOAD PETA DI POSISI TERAKHIR (TANPA LOMPAT DARI TITIK LAIN)
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-        // DETEKSI GESER PETA UNTUK MERUBAH WARNA TOMBOL GPS (BIRU vs MERAH)
         map.on('moveend', () => {
             const center = map.getCenter();
             const btn = document.getElementById('btnMyLocation');
             const dist = map.distance(center, L.latLng(userCurrentLat, userCurrentLng));
 
             if (dist > 50) {
-                btn.style.color = 'var(--accent-red)'; // MERAH: Off-Center
+                btn.style.color = 'var(--accent-red)'; // MERAH: Kamera Digeser
             } else {
-                btn.style.color = 'var(--accent-blue)'; // BIRU: Pas di lokasi GPS
+                btn.style.color = 'var(--accent-blue)'; // BIRU: Pas Di Lokasi Saya
             }
         });
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                userCurrentLat = pos.coords.latitude;
-                userCurrentLng = pos.coords.longitude;
-                map.setView([userCurrentLat, userCurrentLng], 16);
-                centerToMyLocation();
-            }, () => {
-                centerToMyLocation();
-            }, { enableHighAccuracy: true });
-        }
 
         startLiveGpsTracking();
         listenFirebaseData();
@@ -840,6 +831,16 @@
                 userCurrentLat = currentPos.lat;
                 userCurrentLng = currentPos.lng;
 
+                // SIMPAN KOORDINAT TERBARU KE MEMORI HP UNTUK DIPAKAI SAAT REFRESH KELAK
+                localStorage.setItem('iqbike_last_known_pos', JSON.stringify(currentPos));
+
+                // LAKUKAN KUNCI/CENTER PETA HANYA SEKALI SAAT APLIKASI DI-REFRESH
+                if (!isInitialMapCenterDone) {
+                    map.setView([userCurrentLat, userCurrentLng], 16);
+                    document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
+                    isInitialMapCenterDone = true;
+                }
+
                 if (userRole === 'penumpang') {
                     localStorage.setItem('iqbike_passenger_gps', JSON.stringify(currentPos));
                     syncFirebaseData('passengerGps', currentPos);
@@ -886,7 +887,7 @@
     function centerToMyLocation() {
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         map.setView(currentLatLng, 16);
-        document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)'; // UBAH MENJADI BIRU SAAT DI-CENTER
+        document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
 
         if (!pickupCoords) pickupCoords = currentLatLng;
         if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
