@@ -526,6 +526,9 @@
             <div class="finance-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:12px; font-weight:bold; color:#aaa;"><i class="fa-solid fa-wallet"></i> KEUNTUNGAN BERSIH</span>
+                    <button onclick="changeDriverPin()" style="background:#333; color:var(--primary-green); border:1px solid #555; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer;">
+                        <i class="fa-solid fa-key"></i> Ubah PIN
+                    </button>
                     <select id="timeFilter" class="filter-select" onchange="renderFinanceAndHistory()">
                         <option value="today">Hari Ini</option>
                         <option value="week">Minggu Ini</option>
@@ -584,8 +587,10 @@
 </div>
 
 <script>
-    // CONFIG PIN RAHASIA DRIVER KHUSUS OWNER
-    const DRIVER_SECRET_PIN = "8899"; 
+    // INI PEMBACAAN PIN RAHASIA DINAMIS DARI STORAGE (DEFAULT: 8899)
+    function getStoredPin() {
+        return localStorage.getItem('iqbike_driver_pin') || "8899";
+    }
 
     let map;
     let pickupMarker = null, dropoffMarker = null;
@@ -634,12 +639,23 @@
         document.getElementById('loginOverlay').style.display = 'flex';
     }
 
-    // PROTEKSI AKSES DRIVER DENGAN PIN RAHASIA
+    // PROTEKSI AKSES DRIVER + FITUR LUPA PIN OTP VIA WA ADMIN
     function selectUserRole(role) {
         if (role === 'driver') {
-            const inputPin = prompt("Masukkan PIN Rahasia Driver (Khusus Owner):");
-            if (inputPin !== DRIVER_SECRET_PIN) {
-                alert("Akses Ditolak! Mode Driver hanya diperuntukkan bagi Admin/Owner.");
+            const currentPin = getStoredPin();
+            const inputPin = prompt("Masukkan PIN Rahasia Driver (Khusus Owner):\n\n(Jika Lupa PIN, ketik 'LUPA')");
+            
+            if (inputPin === null) return; // Batal tekan Cancel
+
+            if (inputPin.toUpperCase() === 'LUPA') {
+                sendOtpToAdminWA();
+                return;
+            }
+
+            if (inputPin !== currentPin) {
+                if (confirm("PIN Salah! Apakah Anda Lupa PIN dan ingin minta kode OTP via WhatsApp Admin?")) {
+                    sendOtpToAdminWA();
+                }
                 return;
             }
         }
@@ -657,6 +673,52 @@
             document.getElementById('driverView').style.display = 'flex';
             updateDriverAppUI();
             renderFinanceAndHistory();
+        }
+    }
+
+    // FUNGSI MENGIRIM KODE OTP PERMOHONAN KE WA ADMIN
+    function sendOtpToAdminWA() {
+        const generatedOtp = Math.floor(1000 + Math.random() * 9000); // Generate OTP 4 angka random
+        localStorage.setItem('iqbike_temp_otp', generatedOtp.toString());
+
+        const waAdminPhone = "6285934602965";
+        const message = `Halo Admin IqBike, Saya Lupa PIN Driver IqBike.\nMohon Verifikasi Kode OTP Reset PIN Saya: *${generatedOtp}*`;
+        const waUrl = `https://wa.me/${waAdminPhone}?text=${encodeURIComponent(message)}`;
+
+        alert(`Sistem telah membuat Kode OTP (*${generatedOtp}*).\n\nAnda akan diarahkan ke WhatsApp Admin (085934602965) untuk konfirmasi.`);
+        window.open(waUrl, '_blank');
+
+        setTimeout(() => {
+            const userOtpInput = prompt("Masukkan Kode OTP yang telah terverifikasi via WhatsApp Admin:");
+            if (userOtpInput === generatedOtp.toString()) {
+                const newPin = prompt("OTP Benar! Masukkan PIN Baru Anda (4 Digit Angka):");
+                if (newPin && newPin.length >= 4) {
+                    localStorage.setItem('iqbike_driver_pin', newPin);
+                    alert("PIN Berhasil diperbarui! Silakan login kembali dengan PIN baru Anda.");
+                } else {
+                    alert("Gagal memperbarui PIN! PIN minimal 4 angka.");
+                }
+            } else {
+                alert("Kode OTP Salah!");
+            }
+        }, 1000);
+    }
+
+    // FUNGSI UBAH PIN DRIVER (DI DALAM DASHBOARD DRIVER)
+    function changeDriverPin() {
+        const currentPin = getStoredPin();
+        const oldPinInput = prompt("Masukkan PIN Lama Anda saat ini:");
+        
+        if (oldPinInput === currentPin) {
+            const newPin = prompt("Masukkan PIN Baru Anda (4 Digit Angka):");
+            if (newPin && newPin.length >= 4) {
+                localStorage.setItem('iqbike_driver_pin', newPin);
+                alert("PIN Berhasil Diubah!");
+            } else {
+                alert("PIN baru harus minimal 4 digit angka.");
+            }
+        } else {
+            alert("PIN Lama Salah!");
         }
     }
 
