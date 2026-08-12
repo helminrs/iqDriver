@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IqBike - System Hybrid inDrive Style</title>
 
-    <!-- HUBUNGAN KE FILE MANIFEST.JSON -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Leaflet OpenStreetMap -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -27,6 +22,7 @@
             --accent-red: #eb5757;
             --accent-blue: #2f80ed;
             --accent-orange: #f2994a;
+            --whatsapp-green: #25D366;
         }
 
         * {
@@ -59,7 +55,7 @@
         }
 
         .login-overlay, .modal-overlay {
-            position: absolute;
+            position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(18, 18, 18, 0.95);
             z-index: 9999;
@@ -77,6 +73,7 @@
             padding: 24px;
             border-radius: 16px;
             width: 100%;
+            max-width: 400px;
             border: 1px solid #333;
             display: flex;
             flex-direction: column;
@@ -306,6 +303,22 @@
             gap: 10px;
         }
 
+        .btn-whatsapp {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--whatsapp-green);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
         .btn-nav-gmaps {
             width: 100%;
             padding: 10px;
@@ -399,8 +412,7 @@
 <body>
 
 <div class="app-container">
-    <!-- MODAL PILIH LOGIN MODUL -->
-    <div id="loginOverlay" class="login-overlay">
+    <div id="loginOverlay" class="login-overlay" style="display: none;">
         <i class="fa-solid fa-motorcycle" style="font-size: 48px; color: var(--primary-green); margin-bottom: 12px;"></i>
         <h2 style="font-size: 22px; font-weight: 800;">Selamat Datang di IqBike</h2>
         <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Pilih jenis akun/peran Anda untuk melanjutkan</p>
@@ -415,7 +427,6 @@
         </div>
     </div>
 
-    <!-- MODAL INPUT PIN DRIVER -->
     <div id="driverPinModal" class="modal-overlay" style="display: none;">
         <div class="login-card" style="background:#222; color:#fff; text-align:center;">
             <i class="fa-solid fa-lock" style="font-size:36px; color:var(--primary-green);"></i>
@@ -436,7 +447,6 @@
         </div>
     </div>
 
-    <!-- MODAL RESET PIN DARI KODE WA -->
     <div id="resetPinModal" class="modal-overlay" style="display: none;">
         <div class="login-card" style="background:#222; color:#fff; text-align:center;">
             <i class="fa-solid fa-key" style="font-size:36px; color:var(--accent-orange);"></i>
@@ -460,7 +470,6 @@
         </div>
     </div>
 
-    <!-- MODAL INPUT PENGELUARAN -->
     <div id="expenseModal" class="modal-overlay" style="display: none;">
         <div class="login-card" style="background:#fff; color:#222; text-align:left;">
             <div style="text-align:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -482,7 +491,6 @@
         </div>
     </div>
 
-    <!-- MODAL STRUK/RINCIAN PENDAPATAN -->
     <div id="receiptModal" class="modal-overlay" style="display: none;">
         <div class="login-card" style="background:#fff; color:#222; text-align:left;">
             <div style="text-align:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -523,7 +531,6 @@
     </div>
 
     <main class="content-area">
-        <!-- VIEW PENUMPANG -->
         <div id="passengerView" style="display: none; flex-direction: column; gap: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
@@ -539,8 +546,13 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Nama Penumpang</label>
+                <label class="form-label">Nama Penumpang <span style="color:red">*</span></label>
                 <input type="text" id="passengerName" class="form-input" placeholder="Masukkan nama Anda...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nomor WhatsApp Aktif <span style="color:red">* (Wajib untuk Pesan)</span></label>
+                <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
             </div>
 
             <div class="form-group">
@@ -568,7 +580,6 @@
             </button>
         </div>
 
-        <!-- VIEW DRIVER -->
         <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
             <div class="finance-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -678,6 +689,24 @@
 
     function triggerVibration(pattern) {
         if ("vibrate" in navigator) navigator.vibrate(pattern);
+    }
+
+    // FUNGSI FORMAT DAN VALIDASI NOMOR WA INDONESIA
+    function formatWaNumber(phone) {
+        if (!phone) return "";
+        let cleaned = phone.replace(/\D/g, ''); // Hapus karakter selain angka
+        if (cleaned.startsWith('08')) {
+            cleaned = '62' + cleaned.substring(1);
+        } else if (cleaned.startsWith('8')) {
+            cleaned = '62' + cleaned;
+        }
+        return cleaned;
+    }
+
+    function isValidWaNumber(phone) {
+        const cleaned = formatWaNumber(phone);
+        // Validasi nomor WA Indonesia: Awalan 628 + 8 hingga 11 digit angka
+        return /^628\d{8,11}$/.test(cleaned);
     }
 
     function initMap() {
@@ -828,11 +857,9 @@
         }
     }
 
-    // TAMPILAN MARKER DIBEDAKAN ANTARA MODE PENUMPANG & MODE DRIVER
     function renderAllLiveMarkers() {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
-        // 1. Tampilkan Ikon Motor Driver
         const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
         if (driverGps) {
             if (!driverLiveMarker) {
@@ -842,7 +869,6 @@
             }
         }
 
-        // 2. Tampilkan Ikon HP Penumpang (Titik Biru Realtime)
         const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
         if (passengerGps) {
             if (!passengerPhoneMarker) {
@@ -852,21 +878,17 @@
             }
         }
 
-        // 3. Logika Tampilan Pin Merah (Jemput) & Bendera (Tujuan)
         if (userRole === 'penumpang') {
-            // MODE PENUMPANG: SELALU TAMPILKAN PIN MERAH & BENDERA
             if (!pickupCoords) pickupCoords = L.latLng(userCurrentLat, userCurrentLng);
             if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
             
             updateMarker('jemput', pickupCoords);
             updateMarker('tujuan', dropoffCoords);
         } else if (userRole === 'driver') {
-            // MODE DRIVER: HANYA TAMPILKAN JIKA ORDERAN DITERIMA/BERJALAN
             if (order && (order.status === 'HEADING_PICKUP' || order.status === 'ARRIVED' || order.status === 'ON_TRIP')) {
                 if (order.pickupLat && order.pickupLng) updateMarker('jemput', L.latLng(order.pickupLat, order.pickupLng));
                 if (order.dropoffLat && order.dropoffLng) updateMarker('tujuan', L.latLng(order.dropoffLat, order.dropoffLng));
             } else {
-                // Sembunyikan jika belum/tidak ada orderan yang dikonfirmasi
                 if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
                 if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
             }
@@ -1078,15 +1100,26 @@
     }
 
     function sendOrder() {
-        const name = document.getElementById('passengerName').value || 'Penumpang';
+        const name = document.getElementById('passengerName').value.trim() || 'Penumpang';
+        const rawPhone = document.getElementById('passengerPhone').value.trim();
         const pickup = document.getElementById('pickupLocation').value;
         const dropoff = document.getElementById('dropoffLocation').value;
 
+        // VALIDASI KETAT NOMOR WHATSAPP PENUMPANG
+        if (!rawPhone || !isValidWaNumber(rawPhone)) {
+            alert("⚠️ ORDERAN DITOLAK!\n\nHarap masukkan nomor WhatsApp yang valid (contoh: 081234567890).\n\nUntuk meminimalisir orderan fiktif, penumpang wajib mengisi nomor WhatsApp yang terhubung aktif agar bisa dihubungi oleh Driver.");
+            return;
+        }
+
+        const validPhone = formatWaNumber(rawPhone);
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
             order = {
-                id: Date.now(), passengerName: name, pickup, dropoff,
+                id: Date.now(), 
+                passengerName: name, 
+                passengerPhone: validPhone,
+                pickup, dropoff,
                 pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
                 dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
                 initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
@@ -1094,7 +1127,7 @@
                 timestamp: Date.now(),
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
-            alert("Orderan dikirim ke Radar Driver!");
+            alert("Orderan berhasil dikirim ke Radar Driver!");
         } else {
             order.dropoff = dropoff;
             order.dropoffLat = dropoffCoords.lat;
@@ -1111,6 +1144,16 @@
         updatePassengerAppUI();
         updateDriverAppUI();
         renderAllLiveMarkers();
+    }
+
+    function openPassengerWa(phone, name) {
+        if (!phone) {
+            alert("Nomor WhatsApp penumpang tidak ditemukan!");
+            return;
+        }
+        const text = `Halo Kak ${name}, saya Driver IqBike yang menerima orderan Anda. Mohon ditunggu ya, saya sedang menuju ke lokasi penjemputan.`;
+        const waUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
+        window.location.href = waUrl;
     }
 
     function setOrderStatus(newStatus) {
@@ -1342,6 +1385,11 @@
 
         let actionBtnHTML = '';
         let navBtnHTML = '';
+        let waBtnHTML = `
+            <button class="btn-whatsapp" onclick="openPassengerWa('${order.passengerPhone}', '${order.passengerName}')">
+                <i class="fa-brands fa-whatsapp"></i> Hubungi Penumpang via WA (${order.passengerPhone})
+            </button>
+        `;
 
         if (order.status === 'WAITING') {
             actionBtnHTML = `
@@ -1393,6 +1441,7 @@
                     <p><strong style="color:#eb5757;"><i class="fa-solid fa-location-dot"></i> Jemput:</strong> ${order.pickup}</p>
                     <p><strong style="color:#111;"><i class="fa-solid fa-flag-checkered"></i> Tujuan Terupdate:</strong> ${order.dropoff}</p>
                 </div>
+                ${waBtnHTML}
                 ${navBtnHTML}
                 ${actionBtnHTML}
             </div>
