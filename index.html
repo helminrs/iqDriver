@@ -1184,7 +1184,6 @@
     function renderFixedMarkers() {
         const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
-        // Jika tidak ada order aktif dan tidak sedang mode set pin, hapus marker agar peta bersih
         if (!activeOrder && !currentPinMode) {
             if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
             if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
@@ -1324,7 +1323,6 @@
 
                 localStorage.setItem('iqbike_last_known_pos', JSON.stringify(currentPos));
 
-                // MODE DRIVER: Peta otomatis center/mengikuti posisi GPS Driver seperti Google Maps
                 if (userRole === 'driver' && map) {
                     map.setView([userCurrentLat, userCurrentLng], 16);
                 } else if (!isInitialMapCenterDone && userRole === 'penumpang') {
@@ -1616,6 +1614,11 @@
 
         if (!item) return;
 
+        // PERBAIKAN: Otomatis isi kembali Nama dan Nomor WhatsApp dari riwayat sebelumnya
+        document.getElementById('passengerName').value = item.passengerName || '';
+        document.getElementById('passengerPhone').value = item.passengerPhone || '';
+        document.getElementById('passengerNote').value = (item.note && item.note !== '-') ? item.note : '';
+
         document.getElementById('pickupLocation').value = item.dropoff;
         document.getElementById('dropoffLocation').value = item.pickup;
 
@@ -1625,7 +1628,7 @@
         renderFixedMarkers();
         calculateFare();
         map.fitBounds(L.latLngBounds(pickupCoords, dropoffCoords), {padding: [40, 40]});
-        alert("Rute berhasil ditukar untuk perjalanan pulang (PP)!");
+        alert("Rute berhasil ditukar untuk perjalanan pulang (PP)! Nama & No WA otomatis terisi.");
     }
 
     function renderPassengerHistory() {
@@ -1647,6 +1650,7 @@
                     <span style="color:#27ae60;">Rp ${item.fare.toLocaleString('id-ID')}</span>
                 </div>
                 <div style="color:#666; font-size:11px; margin-top:2px;">
+                    <div><strong>Penumpang:</strong> ${item.passengerName} (${item.passengerPhone})</div>
                     <div><strong>Jemput:</strong> ${item.pickup}</div>
                     <div><strong>Tujuan:</strong> ${item.dropoff}</div>
                 </div>
@@ -1694,7 +1698,6 @@
 
             localStorage.removeItem('iqbike_active_order');
             
-            // Bersihkan marker jemput dan tujuan dari peta setelah order selesai
             pickupCoords = null;
             dropoffCoords = null;
             if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
