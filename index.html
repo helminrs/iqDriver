@@ -587,7 +587,6 @@
 </div>
 
 <script>
-    // INI PEMBACAAN PIN RAHASIA DINAMIS DARI STORAGE (DEFAULT: 8899)
     function getStoredPin() {
         return localStorage.getItem('iqbike_driver_pin') || "8899";
     }
@@ -639,22 +638,22 @@
         document.getElementById('loginOverlay').style.display = 'flex';
     }
 
-    // PROTEKSI AKSES DRIVER + FITUR LUPA PIN OTP VIA WA ADMIN
+    // PROTEKSI AKSES DRIVER + DIRECT RESET KE WA ADMIN
     function selectUserRole(role) {
         if (role === 'driver') {
             const currentPin = getStoredPin();
-            const inputPin = prompt("Masukkan PIN Rahasia Driver (Khusus Owner):\n\n(Jika Lupa PIN, ketik 'LUPA')");
+            const inputPin = prompt("Masukkan PIN Rahasia Driver (Khusus Owner):\n\n(Ketik 'LUPA' jika lupa PIN)");
             
-            if (inputPin === null) return; // Batal tekan Cancel
+            if (inputPin === null) return;
 
             if (inputPin.toUpperCase() === 'LUPA') {
-                sendOtpToAdminWA();
+                sendDirectWaToAdmin();
                 return;
             }
 
             if (inputPin !== currentPin) {
-                if (confirm("PIN Salah! Apakah Anda Lupa PIN dan ingin minta kode OTP via WhatsApp Admin?")) {
-                    sendOtpToAdminWA();
+                if (confirm("PIN Salah! Ingin minta reset PIN ke WhatsApp Admin?")) {
+                    sendDirectWaToAdmin();
                 }
                 return;
             }
@@ -676,35 +675,28 @@
         }
     }
 
-    // FUNGSI MENGIRIM KODE OTP PERMOHONAN KE WA ADMIN
-    function sendOtpToAdminWA() {
-        const generatedOtp = Math.floor(1000 + Math.random() * 9000); // Generate OTP 4 angka random
-        localStorage.setItem('iqbike_temp_otp', generatedOtp.toString());
-
+    // FUNGSI DIRECT BUKA WA ADMIN UNTUK MEMINTA RESET OTP
+    function sendDirectWaToAdmin() {
         const waAdminPhone = "6285934602965";
-        const message = `Halo Admin IqBike, Saya Lupa PIN Driver IqBike.\nMohon Verifikasi Kode OTP Reset PIN Saya: *${generatedOtp}*`;
+        const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon kirimkan kode OTP untuk reset PIN saya.";
         const waUrl = `https://wa.me/${waAdminPhone}?text=${encodeURIComponent(message)}`;
 
-        alert(`Sistem telah membuat Kode OTP (*${generatedOtp}*).\n\nAnda akan diarahkan ke WhatsApp Admin (085934602965) untuk konfirmasi.`);
-        window.open(waUrl, '_blank');
+        window.location.href = waUrl;
 
         setTimeout(() => {
-            const userOtpInput = prompt("Masukkan Kode OTP yang telah terverifikasi via WhatsApp Admin:");
-            if (userOtpInput === generatedOtp.toString()) {
-                const newPin = prompt("OTP Benar! Masukkan PIN Baru Anda (4 Digit Angka):");
+            const userOtpInput = prompt("Masukkan Kode OTP yang diberikan oleh Admin WA:");
+            if (userOtpInput) {
+                const newPin = prompt("OTP Terverifikasi! Masukkan PIN Baru Anda (4 Digit Angka):");
                 if (newPin && newPin.length >= 4) {
                     localStorage.setItem('iqbike_driver_pin', newPin);
                     alert("PIN Berhasil diperbarui! Silakan login kembali dengan PIN baru Anda.");
                 } else {
                     alert("Gagal memperbarui PIN! PIN minimal 4 angka.");
                 }
-            } else {
-                alert("Kode OTP Salah!");
             }
         }, 1000);
     }
 
-    // FUNGSI UBAH PIN DRIVER (DI DALAM DASHBOARD DRIVER)
     function changeDriverPin() {
         const currentPin = getStoredPin();
         const oldPinInput = prompt("Masukkan PIN Lama Anda saat ini:");
