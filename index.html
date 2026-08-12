@@ -1009,7 +1009,6 @@
         masterEl.style.display = 'block';
         
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}inspect/{x}/{y}.png', { maxZoom: 19 });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         map.on('movestart', () => {
@@ -1183,6 +1182,15 @@
     }
 
     function renderFixedMarkers() {
+        const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
+
+        // Jika tidak ada order aktif dan tidak sedang mode set pin, hapus marker agar peta bersih
+        if (!activeOrder && !currentPinMode) {
+            if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+            if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+            return;
+        }
+
         if (pickupCoords) {
             if (!pickupMarker) {
                 pickupMarker = L.marker(pickupCoords, {icon: redPinIcon}).addTo(map);
@@ -1316,7 +1324,10 @@
 
                 localStorage.setItem('iqbike_last_known_pos', JSON.stringify(currentPos));
 
-                if (!isInitialMapCenterDone) {
+                // MODE DRIVER: Peta otomatis center/mengikuti posisi GPS Driver seperti Google Maps
+                if (userRole === 'driver' && map) {
+                    map.setView([userCurrentLat, userCurrentLng], 16);
+                } else if (!isInitialMapCenterDone && userRole === 'penumpang') {
                     map.setView([userCurrentLat, userCurrentLng], 16);
                     document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
                     isInitialMapCenterDone = true;
@@ -1495,17 +1506,14 @@
         calculateFare();
     }
 
-    // FUNGSI UTAMA TOMBOL (MEMBEDAKAN BUAT ORDER BARU ATAU CHAT DRIVER SAAT OTW)
     function handleMainActionButton() {
         const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
-        // Jika sudah ada order aktif dan statusnya BUKAN waiting (sedang OTW/Jemput/Trip), arahkan langsung ke chat WhatsApp Driver
         if (activeOrder && activeOrder.status !== 'WAITING') {
             openDriverWaFromPassenger(activeOrder.passengerName, activeOrder.passengerPhone);
             return;
         }
 
-        // Jika belum ada order aktif atau masih WAITING, jalankan proses kirim order baru
         sendOrder();
     }
 
@@ -1685,6 +1693,12 @@
             localStorage.setItem('iqbike_history', JSON.stringify(history));
 
             localStorage.removeItem('iqbike_active_order');
+            
+            // Bersihkan marker jemput dan tujuan dari peta setelah order selesai
+            pickupCoords = null;
+            dropoffCoords = null;
+            if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+            if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
         } else {
             order.status = newStatus;
             localStorage.setItem('iqbike_active_order', JSON.stringify(order));
@@ -1881,7 +1895,6 @@
             btnJemput.disabled = true;
             pickupInput.disabled = true;
             
-            // Ubah tombol hijau menjadi tombol Chat WhatsApp ke Driver saat perjalanan aktif
             btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Chat WhatsApp ke Driver`;
             btnSend.style.backgroundColor = 'var(--whatsapp-green)';
         } else {
