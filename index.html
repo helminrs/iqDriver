@@ -730,7 +730,7 @@
         calculateFare();
     }
 
-   // FUNGSI SEARCH ALAMAT AUTOCOMPLETE & HANDLER PASTE SHARELOK GOOGLE MAPS / WA
+   // FUNGSI PERBAIKAN TOTAL UNTUK PASTE LINK SHORTLINK (maps.app.goo.gl)
 async function handleSearchOrPaste(type) {
     const inputId = (type === 'jemput') ? 'pickupLocation' : 'dropoffLocation';
     const resultsId = (type === 'jemput') ? 'pickupSearchResults' : 'dropoffSearchResults';
@@ -742,7 +742,7 @@ async function handleSearchOrPaste(type) {
         return;
     }
 
-    // 1. DETEKSI KOORDINAT DARI TEKS / LINK PANJANG MAPS (-7.xxx, 107.xxx)
+    // 1. DETEKSI KOORDINAT LANGSUNG (Contoh: -7.0244, 107.5855 atau @-7.0244,107.5855)
     const coordRegex = /([-+]?\d{1,2}\.\d+)\s*,\s*([-+]?\d{1,3}\.\d+)/;
     let match = query.match(coordRegex);
 
@@ -751,33 +751,37 @@ async function handleSearchOrPaste(type) {
         return;
     }
 
-    // 2. PENANGANAN SHORTLINK MAPS (maps.app.goo.gl)
+    // 2. PENANGANAN SHORTLINK GOOGLE MAPS (maps.app.goo.gl) DENGAN PROXY TEMBUS CORS
     if (query.includes('maps.app.goo.gl') || query.includes('goo.gl/maps')) {
         document.getElementById(inputId).value = "Mengekstrak lokasi dari link Google Maps...";
-        try {
-            // Menggunakan Unshortener API untuk membaca URL asli di balik shortlink Google
-            const cleanUrl = query.match(/https?:\/\/[^\s]+/)[0];
-            const response = await fetch(`https://api.unshorten.me/v1/unshorten?url=${encodeURIComponent(cleanUrl)}`);
-            const data = await response.json();
-            
-            if (data && data.resolved_url) {
-                const resolvedUrl = data.resolved_url;
-                // Ekstrak koordinat dari URL asli hasil unshorten (misal @-7.02443,107.58556)
-                const resolvedMatch = resolvedUrl.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/) || 
-                                      resolvedUrl.match(/q=([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/) ||
-                                      resolvedUrl.match(/([-+]?\d{1,2}\.\d+)\s*,\s*([-+]?\d{1,3}\.\d+)/);
 
-                if (resolvedMatch) {
-                    applyCoordinates(type, parseFloat(resolvedMatch[1]), parseFloat(resolvedMatch[2]), inputId, container);
-                    return;
-                }
+        try {
+            const cleanUrl = query.match(/https?:\/\/[^\s]+/)[0];
+            // Menggunakan CORS Proxy untuk membaca Redirect Header Google Maps secara langsung
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`;
+            
+            const response = await fetch(proxyUrl, { method: 'GET' });
+            const finalUrl = response.url; // URL final setelah diputar balik oleh Google
+
+            // Ekstrak koordinat @lat,lng dari URL asli
+            const resolvedMatch = finalUrl.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/) || 
+                                  finalUrl.match(/q=([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/) ||
+                                  finalUrl.match(/([-+]?\d{1,2}\.\d+)\s*,\s*([-+]?\d{1,3}\.\d+)/);
+
+            if (resolvedMatch) {
+                applyCoordinates(type, parseFloat(resolvedMatch[1]), parseFloat(resolvedMatch[2]), inputId, container);
+                return;
+            } else {
+                throw new Error("Koordinat tidak ditemukan di URL");
             }
         } catch (err) {
-            console.log("Unshorten fallback trigger");
+            // Jika proxy gagal/timeout, ubah ke mode pencarian teks nama lokasi
+            alert("Gagal membaca koordinat dari shortlink. Mengalihkan ke pencarian alamat...");
+            document.getElementById(inputId).value = query;
         }
     }
 
-    // 3. AUTOCOMPLETE PENCARIAN TEMPAT MANUAL (TEKS KETIKAN)
+    // 3. AUTOCOMPLETE PENCARIAN TEMPAT MANUAL (NAMA JALAN/KOTA)
     if (query.length >= 3 && !query.startsWith('http')) {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => {
@@ -809,7 +813,6 @@ async function handleSearchOrPaste(type) {
     }
 }
 
-// FUNGSI PEMBANTU UNTUK MENERAPKAN KOORDINAT KE PETA
 function applyCoordinates(type, lat, lng, inputId, container) {
     if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         const newLatLng = L.latLng(lat, lng);
