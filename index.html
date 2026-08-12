@@ -589,19 +589,19 @@
 
             <div class="form-group">
                 <label class="form-label">Lokasi Penjemputan <span style="color:red">*</span> <span id="pickupLockLabel" style="color:red; font-size:10px;"></span></label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Wajib tentukan titik jemput..." oninput="handleSearchOrPaste('jemput')">
+                <input type="text" id="pickupLocation" class="form-input" placeholder="Tekan 'Set JEMPUT' atau cari alamat..." oninput="handleSearchOrPaste('jemput')">
                 <div id="pickupSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Lokasi Tujuan <span style="color:red">*</span></label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Wajib tentukan titik tujuan..." oninput="handleSearchOrPaste('tujuan')">
+                <input type="text" id="dropoffLocation" class="form-input" placeholder="Tekan 'Set TUJUAN' atau cari alamat..." oninput="handleSearchOrPaste('tujuan')">
                 <div id="dropoffSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Jam Penjemputan (Optional / Jika Driver Sibuk)</label>
-                <input type="time" id="pickupTimeSchedule" class="form-input">
+                <label class="form-label">Waktu Minta Dijemput (Opsional jika Driver Sibuk)</label>
+                <input type="text" id="pickupTimeSchedule" class="form-input" placeholder="Contoh: Jam 14.00 / Sekarang">
             </div>
 
             <div class="fare-card">
@@ -614,7 +614,7 @@
                 </button>
                 
                 <button id="btnCancelOrder" class="btn-cancel" type="button" onclick="cancelActiveOrder()" style="display:none;">
-                    <i class="fa-solid fa-xmark"></i> Batalkan Pesanan Ini
+                    <i class="fa-solid fa-xmark"></i> Batalkan Pesanan Aktif
                 </button>
 
                 <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
@@ -624,7 +624,7 @@
 
             <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 12px;">
                 <span style="font-weight: 700; font-size: 13px; color:#444;">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Perjalanan Anda (Bisa PP)
+                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Perjalanan (Tukar Rute PP)
                 </span>
                 <div id="passengerHistoryContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                     <p style="font-size: 11px; color: #a0a0a0; text-align:center;">Belum ada riwayat pesanan.</p>
@@ -925,12 +925,12 @@
         }
 
         if (userRole === 'penumpang') {
-            if (pickupCoords) updateMarker('jemput', pickupCoords);
-            if (dropoffCoords) updateMarker('tujuan', dropoffCoords);
+            if (pickupCoords) updateMarker('jemput', pickupCoords, false);
+            if (dropoffCoords) updateMarker('tujuan', dropoffCoords, false);
         } else if (userRole === 'driver') {
             if (order && (order.status === 'HEADING_PICKUP' || order.status === 'ARRIVED' || order.status === 'ON_TRIP')) {
-                if (order.pickupLat && order.pickupLng) updateMarker('jemput', L.latLng(order.pickupLat, order.pickupLng));
-                if (order.dropoffLat && order.dropoffLng) updateMarker('tujuan', L.latLng(order.dropoffLat, order.dropoffLng));
+                if (order.pickupLat && order.pickupLng) updateMarker('jemput', L.latLng(order.pickupLat, order.pickupLng), false);
+                if (order.dropoffLat && order.dropoffLng) updateMarker('tujuan', L.latLng(order.dropoffLat, order.dropoffLng), false);
             } else {
                 if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
                 if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
@@ -944,12 +944,13 @@
         document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
 
         if (userRole === 'penumpang') {
-            if (!pickupCoords) pickupCoords = currentLatLng;
-            updateMarker('jemput', pickupCoords);
+            pickupCoords = currentLatLng;
+            updateMarker('jemput', pickupCoords, true);
         }
     }
 
-    function updateMarker(type, latlng) {
+    // PEMBAHARUAN: AUTOMATIS TERISI ALAMAT SETIAP PIN DIGESER / DISET
+    function updateMarker(type, latlng, shouldFetchAddress = true) {
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         const isPickupLocked = (order && order.status !== 'WAITING' && userRole === 'penumpang');
 
@@ -965,6 +966,7 @@
                     calculateFare();
                 });
             }
+            if (shouldFetchAddress && userRole === 'penumpang') fetchAddress('jemput', latlng);
         } else {
             if (dropoffMarker) map.removeLayer(dropoffMarker);
             dropoffMarker = L.marker(latlng, {icon: finishFlagIcon, draggable: (userRole === 'penumpang')}).addTo(map);
@@ -977,6 +979,7 @@
                     calculateFare();
                 });
             }
+            if (shouldFetchAddress && userRole === 'penumpang') fetchAddress('tujuan', latlng);
         }
         calculateFare();
     }
@@ -1005,9 +1008,8 @@
                 const newLatLng = L.latLng(lat, lng);
                 if (type === 'jemput') pickupCoords = newLatLng;
                 else dropoffCoords = newLatLng;
-                updateMarker(type, newLatLng);
+                updateMarker(type, newLatLng, false);
                 container.style.display = 'none';
-                fetchAddress(type, newLatLng);
                 calculateFare();
                 return;
             }
@@ -1030,7 +1032,7 @@
                                     const selectedLatLng = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
                                     if (type === 'jemput') pickupCoords = selectedLatLng;
                                     else dropoffCoords = selectedLatLng;
-                                    updateMarker(type, selectedLatLng);
+                                    updateMarker(type, selectedLatLng, false);
                                     container.style.display = 'none';
                                     calculateFare();
                                 };
@@ -1058,12 +1060,10 @@
                 return;
             }
             pickupCoords = center; 
-            updateMarker('jemput', center);
-            fetchAddress('jemput', center);
+            updateMarker('jemput', center, true);
         } else { 
             dropoffCoords = center; 
-            updateMarker('tujuan', center);
-            fetchAddress('tujuan', center);
+            updateMarker('tujuan', center, true);
         }
         calculateFare();
     }
@@ -1137,10 +1137,8 @@
         pickupMarker = null; dropoffMarker = null;
         pickupCoords = null; dropoffCoords = null;
         calculateFare();
-        alert("Lokasi dan rute berhasil di-reset.");
     }
 
-    // FUNGSI UTAMA PENGIRIMAN ORDERAN PENUMPANG (VALIDASI KETAT LOKASI)
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
@@ -1148,14 +1146,13 @@
         const dropoff = document.getElementById('dropoffLocation').value.trim();
         const scheduleTime = document.getElementById('pickupTimeSchedule').value.trim();
 
-        // VALIDASI KETAT TITIK JEMPUT & TUJUAN
         if (!pickup || !pickupCoords) {
-            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap tentukan Lokasi Penjemputan di peta atau cari nama tempat terlebih dahulu.");
+            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap tentukan Lokasi Penjemputan di peta terlebih dahulu.");
             return;
         }
 
         if (!dropoff || !dropoffCoords) {
-            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap tentukan Lokasi Tujuan di peta atau cari nama tempat terlebih dahulu.");
+            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap tentukan Lokasi Tujuan di peta terlebih dahulu.");
             return;
         }
 
@@ -1171,24 +1168,23 @@
 
         const formattedPhone = formatWaNumber(rawPhone);
 
-        // CEK STATUS DRIVER
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
         const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
 
         let isDriverBusy = false;
-        if (order && order.status === 'ON_TRIP') {
-            const dropLatLng = L.latLng(order.dropoffLat, order.dropoffLng);
+        if (activeOrder && activeOrder.status === 'ON_TRIP') {
+            const dropLatLng = L.latLng(activeOrder.dropoffLat, activeOrder.dropoffLng);
             if (driverGps) {
                 const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
                 const distToDrop = map.distance(driverLatLng, dropLatLng);
-                if (distToDrop > 3000) isDriverBusy = true; // Lebih dari 3km masih sibuk
+                if (distToDrop > 3000) isDriverBusy = true; 
             } else {
                 isDriverBusy = true;
             }
         }
 
-        let timeMsg = scheduleTime ? `🕒 Minta Dijemput Jam: ${scheduleTime}` : `⏱️ Dijemput: Secepatnya / Instan`;
-        let busyMsg = isDriverBusy ? `\n\n*(Catatan Penumpang: Saya tahu Driver sedang bertugas, mohon konfirmasinya apakah bisa dijemput di jam ini/setelah selesai).*` : ``;
+        let timeMsg = scheduleTime ? `🕒 Minta Dijemput Jam/Waktu: ${scheduleTime}` : `⏱️ Dijemput: Secepatnya / Instan`;
+        let busyMsg = isDriverBusy ? `\n\n*(Catatan: Driver sedang bertugas, mohon konfirmasinya via WA apakah bisa dijemput di jam ini).*` : ``;
 
         const newOrder = {
             id: Date.now(), 
@@ -1208,7 +1204,6 @@
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
 
-        // SIMPAN KE RIWAYAT PENUMPANG UNTUK FITUR PP (PERGI-PULANG)
         let passHistory = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
@@ -1235,7 +1230,7 @@
     }
 
     function cancelActiveOrder() {
-        if (confirm("Apakah Anda yakin ingin membatalkan pesanan ini?")) {
+        if (confirm("Apakah Anda yakin ingin membatalkan pesanan aktif ini?")) {
             localStorage.removeItem('iqbike_active_order');
             orderChannel.postMessage({ type: 'STATUS_CHANGE' });
             resetAddressAndFare();
@@ -1246,23 +1241,20 @@
         }
     }
 
-    // FITUR TUKAR RUTE AUTOMATIS (PERGI-PULANG / PP)
     function swapRouteFromHistory(itemIndex) {
         const passHistory = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
         const item = passHistory[itemIndex];
 
         if (!item) return;
 
-        // Tukar titik alamat
         document.getElementById('pickupLocation').value = item.dropoff;
         document.getElementById('dropoffLocation').value = item.pickup;
 
-        // Tukar koordinat
         pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
 
-        updateMarker('jemput', pickupCoords);
-        updateMarker('tujuan', dropoffCoords);
+        updateMarker('jemput', pickupCoords, false);
+        updateMarker('tujuan', dropoffCoords, false);
         map.fitBounds(L.latLngBounds(pickupCoords, dropoffCoords), {padding: [30, 30]});
 
         calculateFare();
@@ -1461,6 +1453,7 @@
         window.open(gmapsUrl, '_blank');
     }
 
+    // PEMBAHARUAN UI & STATUS DENGAN LOGIKA RADIUS TERHUBUNG
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
@@ -1526,7 +1519,7 @@
                 statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Driver Mendekati Lokasi! (Orderan Sambung Online)`;
             } else {
                 statusBox.className = "status-box status-busy";
-                statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Driver Sedang Mengantar Penumpangnya...`;
+                statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Driver Sedang Sibuk Mengantar Penumpang...`;
             }
         }
     }
@@ -1587,7 +1580,7 @@
             `;
         }
 
-        let scheduleHTML = (order.scheduleTime && order.scheduleTime !== 'Instan') ? `<p style="color:#e65100; font-weight:bold;"><i class="fa-solid fa-clock"></i> Minta Jemput Jam: ${order.scheduleTime}</p>` : '';
+        let scheduleHTML = (order.scheduleTime && order.scheduleTime !== 'Instan') ? `<p style="color:#e65100; font-weight:bold;"><i class="fa-solid fa-clock"></i> Minta Jemput: ${order.scheduleTime}</p>` : '';
 
         container.innerHTML = `
             <div class="order-card-driver">
