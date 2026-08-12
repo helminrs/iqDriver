@@ -187,7 +187,7 @@
         .map-wrapper {
             position: relative;
             width: 100%;
-            height: 260px;
+            height: 240px;
             background-color: #e5e3df;
             border-radius: 10px;
             overflow: hidden;
@@ -295,15 +295,15 @@
         }
 
         .status-box {
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             text-align: center;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
@@ -311,15 +311,21 @@
         .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
         .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
+        .form-row-2cols {
+            display: grid;
+            grid-template-columns: 1.1fr 1.4fr;
+            gap: 8px;
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
             position: relative;
         }
 
         .form-label {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             color: #666;
             text-transform: uppercase;
@@ -327,10 +333,10 @@
 
         .form-input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 9px 10px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             outline: none;
         }
 
@@ -361,33 +367,33 @@
         .fare-card {
             background: #f8f9fa;
             border: 1px dashed var(--primary-green);
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
             text-align: center;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
         }
 
         .btn-reset {
             width: 100%;
-            padding: 10px;
+            padding: 9px;
             background-color: #ffffff;
             color: var(--accent-red);
             border: 1px solid var(--accent-red);
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
         }
 
         .btn-cancel {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background-color: #eb5757;
             color: #ffffff;
             border: none;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 800;
             cursor: pointer;
             display: flex;
@@ -398,12 +404,12 @@
 
         .btn-submit {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             background-color: var(--whatsapp-green);
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 800;
             cursor: pointer;
             display: flex;
@@ -414,12 +420,12 @@
 
         .btn-history-toggle {
             width: 100%;
-            padding: 10px;
+            padding: 9px;
             background-color: #f0f2f5;
             color: #333;
             border: 1px solid #ccc;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             display: flex;
@@ -765,7 +771,6 @@
         </div>
     </div>
 
-    <!-- MODAL RIWAYAT PERJALANAN PENUMPANG (SEKARANG TERSEMBUNYI DI SINI) -->
     <div id="passengerHistoryModal" class="modal-overlay" style="display: none;">
         <div class="modal-detail-card">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -848,14 +853,21 @@
     </header>
 
     <main class="content-area">
-        <div id="passengerView" style="display: none; flex-direction: column; gap: 12px; padding: 12px;">
+        <div id="passengerView" style="display: none; flex-direction: column; gap: 10px; padding: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Nama Penumpang <span style="color:red">*</span></label>
-                <input type="text" id="passengerName" class="form-input" placeholder="Masukkan nama Anda...">
+            <!-- NAMA & NO WA SEJAJAR DALAM 1 BARIS -->
+            <div class="form-row-2cols">
+                <div class="form-group">
+                    <label class="form-label">Nama <span style="color:red">*</span></label>
+                    <input type="text" id="passengerName" class="form-input" placeholder="Nama Anda...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">No WhatsApp <span style="color:red">*</span></label>
+                    <input type="tel" id="passengerPhone" class="form-input" placeholder="0812xxxx">
+                </div>
             </div>
 
             <div class="form-group">
@@ -887,20 +899,15 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">*</span></label>
-                <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
-            </div>
-
-            <div class="form-group">
                 <label class="form-label">Catatan Untuk Driver (Opsional)</label>
-                <input type="text" id="passengerNote" class="form-input" placeholder="Contoh: Pakai helm bawa sendiri / Jemput jam 14.00">
+                <input type="text" id="passengerNote" class="form-input" placeholder="Contoh: Pakai helm bawa sendiri">
             </div>
 
             <div class="fare-card">
-                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 15px;">Rp 0</span>
+                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 14px;">Rp 0</span>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
                 <button id="btnSendOrder" class="btn-submit" type="button" onclick="handleMainActionButton()">
                     <i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver
                 </button>
@@ -913,7 +920,6 @@
                     <i class="fa-solid fa-rotate-left"></i> Batal Ubah / Reset Rute
                 </button>
 
-                <!-- TOMBOL MENU RIWAYAT TERSEMBUNYI AGAR TAMPILAN UTAMA BERSIH & LUAS -->
                 <button type="button" class="btn-history-toggle" onclick="openPassengerHistoryModal()">
                     <i class="fa-solid fa-clock-rotate-left"></i> Lihat Riwayat Perjalanan & Tukar Rute PP
                 </button>
