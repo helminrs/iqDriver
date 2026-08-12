@@ -124,7 +124,6 @@
             cursor: pointer;
         }
 
-        /* MODE SELEKTOR BUTTONS */
         .pin-mode-selector {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -158,7 +157,6 @@
             color: #ffffff !important;
         }
 
-        /* MAP & CENTER PICKER */
         .map-wrapper {
             position: relative;
             width: 100%;
@@ -452,6 +450,17 @@
             font-size: 11px;
         }
 
+        .clickable-finance-box {
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .clickable-finance-box:hover {
+            background: #333;
+        }
+
         .filter-select {
             padding: 6px 10px;
             border-radius: 6px;
@@ -499,6 +508,20 @@
             gap: 4px;
             align-self: flex-start;
             margin-top: 4px;
+        }
+
+        .modal-detail-card {
+            background: #fff;
+            color: #222;
+            width: 100%;
+            max-width: 420px;
+            max-height: 80vh;
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -584,6 +607,27 @@
         </div>
     </div>
 
+    <!-- MODAL POPUP RINCIAN HASIL NARIK & PENGELUARAN -->
+    <div id="historyDetailsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-detail-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px;">
+                <h3 id="historyModalTitle" style="font-size:15px; font-weight:bold;">Rincian Transaksi</h3>
+                <button onclick="closeHistoryDetailsModal()" style="background:none; border:none; font-size:18px; color:#666; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="historyDetailsListContainer" style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Isi rincian riwayat dimasukkan lewat JavaScript -->
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <button onclick="clearHistory()" style="background:none; border:none; color:red; font-size:11px; cursor:pointer;">
+                    <i class="fa-solid fa-trash"></i> Hapus Semua Riwayat
+                </button>
+                <button onclick="closeHistoryDetailsModal()" style="padding:8px 16px; background:#333; color:white; border:none; border-radius:6px; font-size:12px; font-weight:bold;">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <div id="receiptModal" class="modal-overlay" style="display: none;">
         <div class="login-card" style="background:#fff; color:#222; text-align:left;">
             <div style="text-align:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -639,20 +683,8 @@
                 </div>
             </div>
 
-            <div class="map-wrapper">
-                <div id="map"></div>
-                <button id="btnConfirmLocation" class="btn-confirm-location" onclick="confirmLocationSelection()">
-                    <i class="fa-solid fa-check-circle"></i> OK / SIMPAN TITIK
-                </button>
-                <div id="centerPinContainer" class="center-pin-container">
-                    <div id="centerPinLabel" class="center-pin-label">Geser peta...</div>
-                    <div id="centerPinIcon" class="center-pin-icon">
-                        <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>
-                    </div>
-                </div>
-                <button id="btnMyLocation" class="btn-my-location" onclick="centerToMyLocation()">
-                    <i class="fa-solid fa-crosshairs fa-lg"></i>
-                </button>
+            <div id="passengerMapWrapper" class="map-wrapper">
+                <!-- Peta disisipkan via JS -->
             </div>
 
             <div class="form-group">
@@ -726,12 +758,12 @@
                 </div>
 
                 <div class="finance-grid">
-                    <div>
-                        <div style="color:#aaa;">Hasil Narik (+)</div>
+                    <div class="clickable-finance-box" onclick="openHistoryDetailsModal('INCOME')">
+                        <div style="color:#aaa;">Hasil Narik (+) <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></div>
                         <div style="font-weight:bold; color:#27ae60;" id="grossIncomeText">Rp 0</div>
                     </div>
-                    <div>
-                        <div style="color:#aaa;">Pengeluaran (-)</div>
+                    <div class="clickable-finance-box" onclick="openHistoryDetailsModal('EXPENSE')">
+                        <div style="color:#aaa;">Pengeluaran (-) <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></div>
                         <div style="font-weight:bold; color:#eb5757;" id="totalExpenseText">Rp 0</div>
                     </div>
                 </div>
@@ -739,6 +771,11 @@
                 <button class="expense-btn" onclick="openExpenseModal()">
                     <i class="fa-solid fa-minus-circle"></i> + Catat Pengeluaran (Bensin/Parkir/Makan)
                 </button>
+            </div>
+
+            <!-- CONTAINER PETA UTAMA UNTUK DRIVER -->
+            <div id="driverMapContainer" class="map-wrapper">
+                <!-- Peta disisipkan via JS -->
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -753,20 +790,25 @@
             <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 10px;">
                 <p style="font-size: 12px; color: #888; text-align: center; margin-top: 10px;">Belum ada orderan masuk saat ini...</p>
             </div>
-
-            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 12px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="font-weight: 700; font-size: 13px; color:#444;">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Traksaksi & Pengeluaran
-                    </span>
-                    <button onclick="clearHistory()" style="background:none; border:none; color:red; font-size:11px; cursor:pointer;">Hapus Semua</button>
-                </div>
-                <div id="historyListContainer" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="font-size: 11px; color: #a0a0a0; text-align:center;">Belum ada data transaksi.</p>
-                </div>
-            </div>
         </div>
     </main>
+</div>
+
+<!-- CONTAINER PETA MASTER DENGAN KONTROL & PIN PICKER -->
+<div id="masterMapElement" style="display:none; width:100%; height:100%;">
+    <div id="map" style="width:100%; height:100%;"></div>
+    <button id="btnConfirmLocation" class="btn-confirm-location" onclick="confirmLocationSelection()">
+        <i class="fa-solid fa-check-circle"></i> OK / SIMPAN TITIK
+    </button>
+    <div id="centerPinContainer" class="center-pin-container">
+        <div id="centerPinLabel" class="center-pin-label">Geser peta...</div>
+        <div id="centerPinIcon" class="center-pin-icon">
+            <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>
+        </div>
+    </div>
+    <button id="btnMyLocation" class="btn-my-location" onclick="centerToMyLocation()">
+        <i class="fa-solid fa-crosshairs fa-lg"></i>
+    </button>
 </div>
 
 <script>
@@ -831,6 +873,9 @@
     }
 
     function initMap() {
+        const masterEl = document.getElementById('masterMapElement');
+        masterEl.style.display = 'block';
+        
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
@@ -857,6 +902,15 @@
         });
 
         startLiveGpsTracking();
+    }
+
+    function mountMapToContainer(containerId) {
+        const masterEl = document.getElementById('masterMapElement');
+        const targetContainer = document.getElementById(containerId);
+        if (targetContainer && masterEl) {
+            targetContainer.appendChild(masterEl);
+            setTimeout(() => { map.invalidateSize(); }, 200);
+        }
     }
 
     function togglePinMode(mode) {
@@ -1035,6 +1089,7 @@
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
+            mountMapToContainer('passengerMapWrapper');
             updatePassengerAppUI();
             renderPassengerHistory();
         } else {
@@ -1042,6 +1097,7 @@
             document.getElementById('driverView').style.display = 'flex';
             document.getElementById('centerPinContainer').style.display = 'none';
             document.getElementById('btnConfirmLocation').style.display = 'none';
+            mountMapToContainer('driverMapContainer');
             updateDriverAppUI();
             renderFinanceAndHistory();
         }
@@ -1214,7 +1270,6 @@
         calculateFare();
     }
 
-    // PENGIRIMAN PESAN WHATSAPP DENGAN IKON LENGKAP BEDA-BEDA
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
@@ -1265,7 +1320,6 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        // STRUKTUR PESAN WA DENGAN EMOJI BERBEDA LENGKAP
         const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
                        `👤 Nama: ${name}\n` +
                        `📱 WA Penumpang: ${formattedPhone}\n` +
@@ -1427,10 +1481,60 @@
         alert("Pengeluaran berhasil dicatat!");
     }
 
+    // MODAL KHUSUS POPUP TAMPILAN RINCIAN RIWAYAT
+    function openHistoryDetailsModal(filterType) {
+        const history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
+        const modalContainer = document.getElementById('historyDetailsListContainer');
+        const modalTitle = document.getElementById('historyModalTitle');
+
+        modalTitle.innerText = (filterType === 'INCOME') ? "Rincian Hasil Narik (+)" : "Rincian Pengeluaran (-)";
+        modalContainer.innerHTML = '';
+
+        const filteredList = history.filter(item => {
+            if (filterType === 'INCOME') return item.type !== 'EXPENSE';
+            return item.type === 'EXPENSE';
+        });
+
+        if (filteredList.length === 0) {
+            modalContainer.innerHTML = '<p style="font-size:12px; color:#888; text-align:center; padding:20px;">Belum ada riwayat tercatat.</p>';
+        } else {
+            filteredList.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'history-card';
+
+                if (item.type === 'EXPENSE') {
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                            <span style="color:#eb5757;"><i class="fa-solid fa-minus-circle"></i> ${item.note} (${item.time})</span>
+                            <span style="color:#eb5757;">-Rp ${item.amount.toLocaleString('id-ID')}</span>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                            <span><i class="fa-solid fa-user"></i> ${item.passengerName} (${item.time})</span>
+                            <span style="color:#27ae60;">+Rp ${item.fare.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="color:#666; font-size:11px;">
+                            <div><strong>Jemput:</strong> ${item.pickup}</div>
+                            <div><strong>Tujuan:</strong> ${item.dropoff}</div>
+                        </div>
+                    `;
+                }
+                modalContainer.appendChild(card);
+            });
+        }
+
+        document.getElementById('historyDetailsModal').style.display = 'flex';
+    }
+
+    function closeHistoryDetailsModal() {
+        document.getElementById('historyDetailsModal').style.display = 'none';
+    }
+
     function renderFinanceAndHistory() {
         const filter = document.getElementById('timeFilter').value;
         const history = JSON.parse(localStorage.getItem('iqbike_history') || '[]');
-        const container = document.getElementById('historyListContainer');
 
         const now = Date.now();
         const startOfToday = new Date().setHours(0,0,0,0);
@@ -1438,8 +1542,6 @@
 
         let grossIncome = 0;
         let totalExpense = 0;
-
-        container.innerHTML = '';
 
         const filteredList = history.filter(item => {
             const itemTime = item.timestamp || 0;
@@ -1450,36 +1552,12 @@
             return true;
         });
 
-        if (filteredList.length === 0) {
-            container.innerHTML = '<p style="font-size: 11px; color: #a0a0a0; text-align:center;">Belum ada riwayat pada periode ini.</p>';
-        }
-
         filteredList.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'history-card';
-
             if (item.type === 'EXPENSE') {
                 totalExpense += item.amount;
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                        <span style="color:#eb5757;"><i class="fa-solid fa-minus-circle"></i> ${item.note} (${item.time})</span>
-                        <span style="color:#eb5757;">-Rp ${item.amount.toLocaleString('id-ID')}</span>
-                    </div>
-                `;
             } else {
                 grossIncome += item.fare;
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                        <span><i class="fa-solid fa-user"></i> ${item.passengerName} (${item.time})</span>
-                        <span style="color:#27ae60;">+Rp ${item.fare.toLocaleString('id-ID')}</span>
-                    </div>
-                    <div style="color:#666; font-size:11px;">
-                        <div><strong>Jemput:</strong> ${item.pickup}</div>
-                        <div><strong>Tujuan:</strong> ${item.dropoff}</div>
-                    </div>
-                `;
             }
-            container.appendChild(card);
         });
 
         const netIncome = grossIncome - totalExpense;
@@ -1491,6 +1569,7 @@
     function clearHistory() {
         if (confirm("Hapus semua riwayat transaksi & pengeluaran?")) {
             localStorage.removeItem('iqbike_history');
+            closeHistoryDetailsModal();
             renderFinanceAndHistory();
         }
     }
