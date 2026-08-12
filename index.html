@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IqBike - System Hybrid inDrive Style</title>
+    <title>iqBike - System Hybrid inDrive Style</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -47,11 +47,12 @@
             width: 100%;
             max-width: 480px;
             background-color: #ffffff;
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
             position: relative;
+            overflow: hidden;
         }
 
         .login-overlay, .modal-overlay {
@@ -104,6 +105,7 @@
             justify-content: space-between;
             align-items: center;
             z-index: 1000;
+            flex-shrink: 0;
         }
 
         .brand-title {
@@ -185,8 +187,14 @@
             border: 1px solid var(--border-color);
         }
 
-        .map-wrapper-tall {
-            height: 380px !important;
+        /* LAYOUT PETA FULL DRIVER */
+        .map-wrapper-full {
+            flex: 1;
+            width: 100%;
+            height: 100% !important;
+            border-radius: 0 !important;
+            border: none !important;
+            position: relative;
         }
 
         #map {
@@ -248,28 +256,36 @@
 
         .btn-my-location {
             position: absolute;
-            bottom: 12px;
-            right: 12px;
-            width: 40px;
-            height: 40px;
+            bottom: 16px;
+            right: 16px;
+            width: 42px;
+            height: 42px;
             background-color: #ffffff;
             color: var(--accent-blue);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
             z-index: 1001;
             cursor: pointer;
             border: none;
         }
 
         .content-area {
-            padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
             flex: 1;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .driver-view-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
 
         .status-box {
@@ -452,15 +468,16 @@
         .btn-trip { background-color: var(--primary-green); color: #111; }
         .btn-finish { background-color: #27ae60; }
 
-        /* DESAIN KARTU KEUANGAN SIMETRIS DENGAN ANGKA BERSIH DI TENGAH */
         .finance-card {
             background: #121212;
             color: white;
-            padding: 12px;
-            border-radius: 12px;
+            padding: 10px 12px;
+            border-radius: 0 0 12px 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
         }
 
         .finance-grid-3cols {
@@ -468,7 +485,7 @@
             grid-template-columns: 1fr 1.2fr 1fr;
             gap: 6px;
             background: #1e1e1e;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
             text-align: center;
             align-items: center;
@@ -482,9 +499,7 @@
             background: #282828;
         }
 
-        .clickable-finance-box:hover {
-            background: #333;
-        }
+        .clickable-finance-box:hover { background: #333; }
 
         .net-income-box {
             display: flex;
@@ -561,16 +576,45 @@
             overflow-y: auto;
         }
 
-        /* BOTTOM SHEET RADAR ORDERAN SEPERTI GOOGLE MAPS */
-        .bottom-sheet-radar {
+        /* POPUP FLOATING RADAR OVERLAY (HANYA MUNCUL SAAT ADA ORDERAN MASUK) */
+        .floating-radar-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
             background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 16px 16px 0 0;
+            border-radius: 18px 18px 0 0;
             padding: 14px;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.25);
+            z-index: 1002;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        /* BADGE STATUS MINI DI ATAS PETA SAAT SEPI ORDERAN */
+        .mini-gps-badge {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(18, 18, 18, 0.85);
+            color: #8cc63f;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(4px);
         }
     </style>
 </head>
@@ -579,7 +623,7 @@
 <div class="app-container">
     <div id="loginOverlay" class="login-overlay" style="display: none;">
         <i class="fa-solid fa-motorcycle" style="font-size: 48px; color: var(--primary-green); margin-bottom: 12px;"></i>
-        <h2 style="font-size: 22px; font-weight: 800;">Selamat Datang di IqBike</h2>
+        <h2 style="font-size: 22px; font-weight: 800;">Selamat Datang di iqBike</h2>
         <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Pilih jenis akun/peran Anda untuk melanjutkan</p>
         
         <div class="login-card">
@@ -656,7 +700,6 @@
         </div>
     </div>
 
-    <!-- MODAL POPUP RINCIAN HASIL NARIK & PENGELUARAN DENGAN TOMBOL CATAT PENGELUARAN DI DALAM -->
     <div id="historyDetailsModal" class="modal-overlay" style="display: none;">
         <div class="modal-detail-card">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -665,7 +708,7 @@
             </div>
 
             <div id="historyDetailsListContainer" style="display:flex; flex-direction:column; gap:8px;">
-                <!-- Isi rincian riwayat dimasukkan lewat JavaScript -->
+                <!-- Isi rincian riwayat -->
             </div>
 
             <div id="expenseActionContainer" style="display:none;">
@@ -705,11 +748,10 @@
         </div>
     </div>
 
-    <!-- HEADER DENGAN TOMBOL UBAH PIN DI SAMPING MODE DRIVER -->
     <header class="header">
         <div class="brand-title">
             <i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i>
-            <span>IqBike</span>
+            <span>iqBike</span>
         </div>
         <div class="header-actions">
             <button id="btnHeaderPin" class="btn-header-pin" onclick="changeDriverPinDirect()" style="display:none;">
@@ -722,7 +764,7 @@
     </header>
 
     <main class="content-area">
-        <div id="passengerView" style="display: none; flex-direction: column; gap: 12px;">
+        <div id="passengerView" style="display: none; flex-direction: column; gap: 12px; padding: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
             </div>
@@ -798,8 +840,7 @@
             </div>
         </div>
 
-        <div id="driverView" style="display: none; flex-direction: column; gap: 10px;">
-            <!-- KARTU KEUANGAN SIMETRIS (ANGKA NET BERADA DI TENGAH) -->
+        <div id="driverView" class="driver-view-container" style="display: none;">
             <div class="finance-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:11px; font-weight:bold; color:#aaa;"><i class="fa-solid fa-wallet"></i> RINGKASAN KEUANGAN</span>
@@ -830,31 +871,34 @@
                 </div>
             </div>
 
-            <!-- CONTAINER PETA PANJANG STYLE GOOGLE MAPS -->
-            <div id="driverMapContainer" class="map-wrapper map-wrapper-tall">
+            <!-- PETA MEMENUHI TAMPILAN FULL LAYAR -->
+            <div id="driverMapContainer" class="map-wrapper-full">
                 <!-- Peta disisipkan via JS -->
             </div>
 
-            <!-- PANEL RADAR ORDERAN REALTIME DALAM BENTUK BOTTOM SHEET GOOGLE MAPS -->
-            <div class="bottom-sheet-radar">
+            <div class="mini-gps-badge">
+                <i class="fa-solid fa-signal"></i> GPS DRIVER ONLINE
+            </div>
+
+            <!-- POPUP FLOATING RADAR OVERLAY (OTOMATIS MUNCUL SAAT ADA ORDERAN BERJALAN) -->
+            <div id="floatingRadarPanel" class="floating-radar-overlay" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-weight: 800; font-size: 13px; color:#222;">
-                        <i class="fa-solid fa-list-check"></i> Radar Orderan Realtime
+                        <i class="fa-solid fa-circle-dot" style="color:red;"></i> Orderan Masuk Realtime
                     </span>
-                    <span style="background:#8cc63f; color:#111; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:bold;">
-                        <i class="fa-solid fa-signal"></i> GPS ONLINE
+                    <span style="background:#8cc63f; color:#111; padding:2px 6px; border-radius:10px; font-size:10px; font-weight:bold;">
+                        AKTIF
                     </span>
                 </div>
 
                 <div id="orderListContainer" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="font-size: 12px; color: #888; text-align: center; margin: 10px 0;">Belum ada orderan masuk saat ini...</p>
+                    <!-- Card Orderan Aktif -->
                 </div>
             </div>
         </div>
     </main>
 </div>
 
-<!-- CONTAINER PETA MASTER DENGAN KONTROL & PIN PICKER -->
 <div id="masterMapElement" style="display:none; width:100%; height:100%;">
     <div id="map" style="width:100%; height:100%;"></div>
     <button id="btnConfirmLocation" class="btn-confirm-location" onclick="confirmLocationSelection()">
@@ -1085,7 +1129,7 @@
     }
 
     function triggerResetPinWa() {
-        const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon berikan Kode Verifikasi Master untuk reset PIN.";
+        const message = "Halo Admin iqBike, saya Lupa PIN Driver. Mohon berikan Kode Verifikasi Master untuk reset PIN.";
         const waUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(message)}`;
 
         closeDriverPinModal();
@@ -1382,7 +1426,7 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
+        const waText = `Halo Driver iqBike, saya mau order ojek online:\n\n` +
                        `👤 Nama: ${name}\n` +
                        `📱 WA Penumpang: ${formattedPhone}\n` +
                        `📍 Jemput: ${pickup}\n` +
@@ -1466,7 +1510,7 @@
             alert("Nomor WhatsApp penumpang tidak ditemukan!");
             return;
         }
-        const text = `Halo Kak ${name}, saya Driver IqBike yang menerima orderan Anda. Mohon ditunggu ya, saya sedang menuju ke lokasi penjemputan.`;
+        const text = `Halo Kak ${name}, saya Driver iqBike yang menerima orderan Anda. Mohon ditunggu ya, saya sedang menuju ke lokasi penjemputan.`;
         const waUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
         window.location.href = waUrl;
     }
@@ -1685,14 +1729,20 @@
         }
     }
 
+    // UPDATE UI DRIVER: PETA FULL SCREEN & POPUP OVERLAY KETIKA ADA ORDERAN AKTIFF
     function updateDriverAppUI() {
         const container = document.getElementById('orderListContainer');
+        const floatingPanel = document.getElementById('floatingRadarPanel');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
         if (!order) {
-            container.innerHTML = '<p style="font-size: 12px; color: #888; text-align: center; margin: 10px 0;">Belum ada orderan masuk saat ini...</p>';
+            floatingPanel.style.display = 'none';
+            container.innerHTML = '';
+            setTimeout(() => { if (map) map.invalidateSize(); }, 200);
             return;
         }
+
+        floatingPanel.style.display = 'flex';
 
         let actionBtnHTML = '';
         let navBtnHTML = '';
@@ -1748,6 +1798,8 @@
                 ${actionBtnHTML}
             </div>
         `;
+
+        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
     }
 
     orderChannel.onmessage = function() {
