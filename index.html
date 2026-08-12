@@ -124,10 +124,11 @@
             cursor: pointer;
         }
 
+        /* MAP & CENTER PIN STYLE */
         .map-wrapper {
             position: relative;
             width: 100%;
-            height: 230px;
+            height: 250px;
             background-color: #e5e3df;
         }
 
@@ -136,12 +137,45 @@
             height: 100%;
         }
 
+        /* FIXED PIN DI TENGAH LAYAR PETA */
+        .center-pin-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100%);
+            z-index: 1000;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .center-pin-label {
+            background: #000;
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+
+        .center-pin-icon {
+            font-size: 28px;
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.4));
+        }
+
         .btn-my-location {
             position: absolute;
             bottom: 12px;
             right: 12px;
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             background-color: #ffffff;
             color: var(--accent-blue);
             border-radius: 50%;
@@ -149,10 +183,43 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            z-index: 500;
+            z-index: 1001;
             cursor: pointer;
             border: none;
-            transition: color 0.3s ease;
+        }
+
+        .pin-mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .btn-pin-mode {
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            background: #fff;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #555;
+        }
+
+        .btn-pin-mode.active-jemput {
+            border-color: #0288d1;
+            background: #e1f5fe;
+            color: #0288d1;
+        }
+
+        .btn-pin-mode.active-tujuan {
+            border-color: #0288d1;
+            background: #e1f5fe;
+            color: #0288d1;
         }
 
         .content-area {
@@ -179,26 +246,6 @@
         .status-busy { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
         .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
         .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
-
-        .location-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .btn-action {
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
 
         .btn-disabled {
             opacity: 0.5;
@@ -555,26 +602,10 @@
         </button>
     </header>
 
-    <div class="map-wrapper">
-        <div id="map"></div>
-        <button id="btnMyLocation" class="btn-my-location" onclick="centerToMyLocation()">
-            <i class="fa-solid fa-crosshairs fa-lg"></i>
-        </button>
-    </div>
-
     <main class="content-area">
         <div id="passengerView" style="display: none; flex-direction: column; gap: 12px;">
             <div id="driverStatusBox" class="status-box status-online">
                 <i class="fa-solid fa-circle"></i> Memeriksa Status Driver...
-            </div>
-
-            <div class="location-actions">
-                <button id="btnSetJemput" class="btn-action" onclick="setPointToCenter('jemput')">
-                    <i class="fa-solid fa-map-pin" style="color: var(--accent-red);"></i> Set JEMPUT di Tengah
-                </button>
-                <button id="btnSetTujuan" class="btn-action" onclick="setPointToCenter('tujuan')">
-                    <i class="fa-solid fa-flag-checkered" style="color: #333;"></i> Set TUJUAN di Tengah
-                </button>
             </div>
 
             <div class="form-group">
@@ -583,25 +614,51 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">*</span></label>
-                <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
+                <label class="form-label">PILIH MODE PIN PETA</label>
+                <div class="pin-mode-selector">
+                    <button id="btnModeJemput" class="btn-pin-mode active-jemput" onclick="switchPinMode('jemput')">
+                        <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i> Pin JEMPUT
+                    </button>
+                    <button id="btnModeTujuan" class="btn-pin-mode" onclick="switchPinMode('tujuan')">
+                        <i class="fa-solid fa-flag-checkered" style="color:#111;"></i> Pin TUJUAN
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTAINER PETA DENGAN PIN TETAP DI TENGAH -->
+            <div class="map-wrapper">
+                <div id="map"></div>
+                <div id="centerPinContainer" class="center-pin-container">
+                    <div id="centerPinLabel" class="center-pin-label">Geser peta...</div>
+                    <div id="centerPinIcon" class="center-pin-icon">
+                        <i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>
+                    </div>
+                </div>
+                <button id="btnMyLocation" class="btn-my-location" onclick="centerToMyLocation()">
+                    <i class="fa-solid fa-crosshairs fa-lg"></i>
+                </button>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Lokasi Penjemputan <span style="color:red">*</span> <span id="pickupLockLabel" style="color:red; font-size:10px;"></span></label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Tekan 'Set JEMPUT' atau cari alamat..." oninput="handleSearchOrPaste('jemput')">
+                <label class="form-label">Lokasi Penjemputan <span style="color:red">*</span></label>
+                <input type="text" id="pickupLocation" class="form-input" placeholder="Geser peta / ketik alamat..." oninput="handleSearchOrPaste('jemput')">
                 <div id="pickupSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Lokasi Tujuan <span style="color:red">*</span></label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Tekan 'Set TUJUAN' atau cari alamat..." oninput="handleSearchOrPaste('tujuan')">
+                <input type="text" id="dropoffLocation" class="form-input" placeholder="Geser peta / ketik alamat..." oninput="handleSearchOrPaste('tujuan')">
                 <div id="dropoffSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Waktu Minta Dijemput (Opsional jika Driver Sibuk)</label>
-                <input type="text" id="pickupTimeSchedule" class="form-input" placeholder="Contoh: Jam 14.00 / Sekarang">
+                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">*</span></label>
+                <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Catatan Untuk Driver (Opsional)</label>
+                <input type="text" id="passengerNote" class="form-input" placeholder="Contoh: Pakai helm bawa sendiri / Jemput jam 14.00">
             </div>
 
             <div class="fare-card">
@@ -610,7 +667,7 @@
 
             <div style="display:flex; flex-direction:column; gap:8px;">
                 <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
-                    <i class="fa-brands fa-whatsapp"></i> Kirim Orderan via WA Driver
+                    <i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver
                 </button>
                 
                 <button id="btnCancelOrder" class="btn-cancel" type="button" onclick="cancelActiveOrder()" style="display:none;">
@@ -705,10 +762,10 @@
     }
 
     let map;
-    let pickupMarker = null, dropoffMarker = null;
-    let driverLiveMarker = null, passengerPhoneMarker = null;
+    let currentPinMode = 'jemput'; // 'jemput' atau 'tujuan'
     let pickupCoords = null, dropoffCoords = null;
-    
+    let reverseGeocodeTimeout = null;
+
     const savedLastPos = JSON.parse(localStorage.getItem('iqbike_last_known_pos'));
     let userCurrentLat = savedLastPos ? savedLastPos.lat : -7.02443;
     let userCurrentLng = savedLastPos ? savedLastPos.lng : 107.58556;
@@ -719,26 +776,6 @@
     let searchDebounce = null;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
-
-    const redPinIcon = L.divIcon({
-        html: '<i class="fa-solid fa-location-dot" style="font-size:24px; color:#eb5757;"></i>',
-        iconSize: [24, 24], iconAnchor: [12, 24], className: 'custom-pin'
-    });
-
-    const finishFlagIcon = L.divIcon({
-        html: '<i class="fa-solid fa-flag-checkered" style="font-size:20px; color:#111; background:#fff; padding:2px; border-radius:50%; border:1px solid #111;"></i>',
-        iconSize: [22, 22], iconAnchor: [11, 11], className: 'custom-flag'
-    });
-
-    const driverMotorIcon = L.divIcon({
-        html: '<i class="fa-solid fa-motorcycle" style="font-size:12px; color:#fff; background:#8cc63f; padding:4px; border-radius:50%; border:1px solid #121212; box-shadow:0 1px 4px rgba(0,0,0,0.4);"></i>',
-        iconSize: [22, 22], iconAnchor: [11, 11], className: 'driver-motor-icon'
-    });
-
-    const passengerPhoneIcon = L.divIcon({
-        html: '<i class="fa-solid fa-user-large" style="font-size:11px; color:#fff; background:#2f80ed; padding:4px; border-radius:50%; border:1px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.4);"></i>',
-        iconSize: [22, 22], iconAnchor: [11, 11], className: 'passenger-phone-icon'
-    });
 
     function triggerVibration(pattern) {
         if ("vibrate" in navigator) navigator.vibrate(pattern);
@@ -759,6 +796,13 @@
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
+        // EVENT GESER PETA: DETEKSI GERAKAN & HENTI PETA
+        map.on('movestart', () => {
+            if (userRole === 'penumpang') {
+                document.getElementById('centerPinLabel').innerText = "Menggeser lokasi...";
+            }
+        });
+
         map.on('moveend', () => {
             const center = map.getCenter();
             const btn = document.getElementById('btnMyLocation');
@@ -769,9 +813,59 @@
             } else {
                 btn.style.color = 'var(--accent-blue)';
             }
+
+            if (userRole === 'penumpang') {
+                handleMapCenterChange(center);
+            }
         });
 
         startLiveGpsTracking();
+    }
+
+    // SWITCH MODE PIN (JEMPUT ATAU TUJUAN)
+    function switchPinMode(mode) {
+        currentPinMode = mode;
+        const btnJemput = document.getElementById('btnModeJemput');
+        const btnTujuan = document.getElementById('btnModeTujuan');
+        const pinIcon = document.getElementById('centerPinIcon');
+
+        if (mode === 'jemput') {
+            btnJemput.className = 'btn-pin-mode active-jemput';
+            btnTujuan.className = 'btn-pin-mode';
+            pinIcon.innerHTML = '<i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>';
+            if (pickupCoords) map.panTo(pickupCoords);
+        } else {
+            btnJemput.className = 'btn-pin-mode';
+            btnTujuan.className = 'btn-pin-mode active-tujuan';
+            pinIcon.innerHTML = '<i class="fa-solid fa-flag-checkered" style="color:#111;"></i>';
+            if (dropoffCoords) map.panTo(dropoffCoords);
+        }
+    }
+
+    function handleMapCenterChange(centerLatLng) {
+        clearTimeout(reverseGeocodeTimeout);
+        document.getElementById('centerPinLabel').innerText = "Mencari alamat...";
+
+        reverseGeocodeTimeout = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${centerLatLng.lat}&lon=${centerLatLng.lng}`)
+                .then(res => res.json())
+                .then(data => {
+                    const placeName = (data && data.display_name) ? data.display_name.split(',').slice(0, 3).join(',') : "Lokasi Terpilih";
+                    
+                    document.getElementById('centerPinLabel').innerText = placeName.split(',')[0];
+
+                    if (currentPinMode === 'jemput') {
+                        pickupCoords = centerLatLng;
+                        document.getElementById('pickupLocation').value = placeName;
+                    } else {
+                        dropoffCoords = centerLatLng;
+                        document.getElementById('dropoffLocation').value = placeName;
+                    }
+                    calculateFare();
+                }).catch(() => {
+                    document.getElementById('centerPinLabel').innerText = "Titik Koordinat";
+                });
+        }, 400);
     }
 
     function showLoginOverlay() {
@@ -865,15 +959,16 @@
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
+            document.getElementById('centerPinContainer').style.display = 'flex';
             updatePassengerAppUI();
             renderPassengerHistory();
         } else {
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
+            document.getElementById('centerPinContainer').style.display = 'none';
             updateDriverAppUI();
             renderFinanceAndHistory();
         }
-        renderAllLiveMarkers();
     }
 
     function startLiveGpsTracking() {
@@ -898,43 +993,7 @@
                 }
 
                 orderChannel.postMessage({ type: 'GPS_UPDATE' });
-                renderAllLiveMarkers();
             }, null, { enableHighAccuracy: true });
-        }
-    }
-
-    function renderAllLiveMarkers() {
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-
-        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
-        if (driverGps) {
-            if (!driverLiveMarker) {
-                driverLiveMarker = L.marker([driverGps.lat, driverGps.lng], {icon: driverMotorIcon, zIndexOffset: 1000}).addTo(map);
-            } else {
-                driverLiveMarker.setLatLng([driverGps.lat, driverGps.lng]);
-            }
-        }
-
-        const passengerGps = JSON.parse(localStorage.getItem('iqbike_passenger_gps'));
-        if (passengerGps) {
-            if (!passengerPhoneMarker) {
-                passengerPhoneMarker = L.marker([passengerGps.lat, passengerGps.lng], {icon: passengerPhoneIcon, zIndexOffset: 900}).addTo(map);
-            } else {
-                passengerPhoneMarker.setLatLng([passengerGps.lat, passengerGps.lng]);
-            }
-        }
-
-        if (userRole === 'penumpang') {
-            if (pickupCoords) updateMarker('jemput', pickupCoords, false);
-            if (dropoffCoords) updateMarker('tujuan', dropoffCoords, false);
-        } else if (userRole === 'driver') {
-            if (order && (order.status === 'HEADING_PICKUP' || order.status === 'ARRIVED' || order.status === 'ON_TRIP')) {
-                if (order.pickupLat && order.pickupLng) updateMarker('jemput', L.latLng(order.pickupLat, order.pickupLng), false);
-                if (order.dropoffLat && order.dropoffLng) updateMarker('tujuan', L.latLng(order.dropoffLat, order.dropoffLng), false);
-            } else {
-                if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
-                if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
-            }
         }
     }
 
@@ -942,46 +1001,6 @@
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         map.setView(currentLatLng, 16);
         document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)';
-
-        if (userRole === 'penumpang') {
-            pickupCoords = currentLatLng;
-            updateMarker('jemput', pickupCoords, true);
-        }
-    }
-
-    // PEMBAHARUAN: AUTOMATIS TERISI ALAMAT SETIAP PIN DIGESER / DISET
-    function updateMarker(type, latlng, shouldFetchAddress = true) {
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        const isPickupLocked = (order && order.status !== 'WAITING' && userRole === 'penumpang');
-
-        if (type === 'jemput') {
-            if (pickupMarker) map.removeLayer(pickupMarker);
-            pickupMarker = L.marker(latlng, {icon: redPinIcon, draggable: !isPickupLocked}).addTo(map);
-            pickupCoords = latlng;
-
-            if (!isPickupLocked && userRole === 'penumpang') {
-                pickupMarker.on('dragend', (e) => {
-                    pickupCoords = e.target.getLatLng();
-                    fetchAddress('jemput', pickupCoords);
-                    calculateFare();
-                });
-            }
-            if (shouldFetchAddress && userRole === 'penumpang') fetchAddress('jemput', latlng);
-        } else {
-            if (dropoffMarker) map.removeLayer(dropoffMarker);
-            dropoffMarker = L.marker(latlng, {icon: finishFlagIcon, draggable: (userRole === 'penumpang')}).addTo(map);
-            dropoffCoords = latlng;
-
-            if (userRole === 'penumpang') {
-                dropoffMarker.on('dragend', (e) => {
-                    dropoffCoords = e.target.getLatLng();
-                    fetchAddress('tujuan', dropoffCoords);
-                    calculateFare();
-                });
-            }
-            if (shouldFetchAddress && userRole === 'penumpang') fetchAddress('tujuan', latlng);
-        }
-        calculateFare();
     }
 
     function handleSearchOrPaste(type) {
@@ -992,8 +1011,8 @@
 
         if (!query) {
             container.style.display = 'none';
-            if (type === 'jemput' && pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; pickupCoords = null; }
-            if (type === 'tujuan' && dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; dropoffCoords = null; }
+            if (type === 'jemput') pickupCoords = null;
+            if (type === 'tujuan') dropoffCoords = null;
             calculateFare();
             return;
         }
@@ -1008,7 +1027,7 @@
                 const newLatLng = L.latLng(lat, lng);
                 if (type === 'jemput') pickupCoords = newLatLng;
                 else dropoffCoords = newLatLng;
-                updateMarker(type, newLatLng, false);
+                map.panTo(newLatLng);
                 container.style.display = 'none';
                 calculateFare();
                 return;
@@ -1032,7 +1051,7 @@
                                     const selectedLatLng = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
                                     if (type === 'jemput') pickupCoords = selectedLatLng;
                                     else dropoffCoords = selectedLatLng;
-                                    updateMarker(type, selectedLatLng, false);
+                                    map.panTo(selectedLatLng);
                                     container.style.display = 'none';
                                     calculateFare();
                                 };
@@ -1047,36 +1066,6 @@
         } else {
             container.style.display = 'none';
         }
-    }
-
-    function setPointToCenter(type) {
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        const isPickupLocked = (order && order.status !== 'WAITING');
-        const center = map.getCenter();
-
-        if (type === 'jemput') { 
-            if (isPickupLocked) {
-                alert("Titik jemput sudah dikonfirmasi Driver dan tidak dapat diubah!");
-                return;
-            }
-            pickupCoords = center; 
-            updateMarker('jemput', center, true);
-        } else { 
-            dropoffCoords = center; 
-            updateMarker('tujuan', center, true);
-        }
-        calculateFare();
-    }
-
-    function fetchAddress(type, latlng) {
-        const inputId = (type === 'jemput') ? 'pickupLocation' : 'dropoffLocation';
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.display_name) {
-                    document.getElementById(inputId).value = data.display_name.split(',').slice(0, 3).join(',');
-                }
-            }).catch(() => {});
     }
 
     function computeDistanceFare(distanceInMeters) {
@@ -1101,40 +1090,14 @@
             return;
         }
 
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-
-        if (!order || order.status === 'WAITING') {
-            const distMeters = map.distance(pickupCoords, dropoffCoords);
-            computedTotalFare = computeDistanceFare(distMeters);
-            document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')}`;
-        } else {
-            const initialDrop = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
-            const baseDist = map.distance(L.latLng(order.pickupLat, order.pickupLng), initialDrop);
-            const baseFare = computeDistanceFare(baseDist);
-
-            const extraDist = map.distance(initialDrop, dropoffCoords);
-            let extraFare = 0;
-
-            if (extraDist > 100) {
-                extraFare = computeDistanceFare(extraDist);
-            }
-
-            computedTotalFare = baseFare + extraFare;
-
-            if (extraFare > 0) {
-                document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')} (+Tambahan Ubah Tujuan: Rp ${extraFare.toLocaleString('id-ID')})`;
-            } else {
-                document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')}`;
-            }
-        }
+        const distMeters = map.distance(pickupCoords, dropoffCoords);
+        computedTotalFare = computeDistanceFare(distMeters);
+        document.getElementById('fareText').innerText = `Rp ${computedTotalFare.toLocaleString('id-ID')} (${(distMeters/1000).toFixed(1)} km)`;
     }
 
     function resetAddressAndFare() {
         document.getElementById('pickupLocation').value = '';
         document.getElementById('dropoffLocation').value = '';
-        if (pickupMarker) map.removeLayer(pickupMarker);
-        if (dropoffMarker) map.removeLayer(dropoffMarker);
-        pickupMarker = null; dropoffMarker = null;
         pickupCoords = null; dropoffCoords = null;
         calculateFare();
     }
@@ -1144,15 +1107,15 @@
         const name = document.getElementById('passengerName').value.trim();
         const pickup = document.getElementById('pickupLocation').value.trim();
         const dropoff = document.getElementById('dropoffLocation').value.trim();
-        const scheduleTime = document.getElementById('pickupTimeSchedule').value.trim();
+        const note = document.getElementById('passengerNote').value.trim() || "-";
 
         if (!pickup || !pickupCoords) {
-            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap tentukan Lokasi Penjemputan di peta terlebih dahulu.");
+            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap pilih Mode 'Pin JEMPUT' lalu geser peta ke lokasi penjemputan.");
             return;
         }
 
         if (!dropoff || !dropoffCoords) {
-            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap tentukan Lokasi Tujuan di peta terlebih dahulu.");
+            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap pilih Mode 'Pin TUJUAN' lalu geser peta ke lokasi tujuan.");
             return;
         }
 
@@ -1167,24 +1130,7 @@
         }
 
         const formattedPhone = formatWaNumber(rawPhone);
-
-        const activeOrder = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
-
-        let isDriverBusy = false;
-        if (activeOrder && activeOrder.status === 'ON_TRIP') {
-            const dropLatLng = L.latLng(activeOrder.dropoffLat, activeOrder.dropoffLng);
-            if (driverGps) {
-                const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
-                const distToDrop = map.distance(driverLatLng, dropLatLng);
-                if (distToDrop > 3000) isDriverBusy = true; 
-            } else {
-                isDriverBusy = true;
-            }
-        }
-
-        let timeMsg = scheduleTime ? `🕒 Minta Dijemput Jam/Waktu: ${scheduleTime}` : `⏱️ Dijemput: Secepatnya / Instan`;
-        let busyMsg = isDriverBusy ? `\n\n*(Catatan: Driver sedang bertugas, mohon konfirmasinya via WA apakah bisa dijemput di jam ini).*` : ``;
+        const distKm = (map.distance(pickupCoords, dropoffCoords)/1000).toFixed(1);
 
         const newOrder = {
             id: Date.now(), 
@@ -1193,9 +1139,8 @@
             pickup, dropoff,
             pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
             dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
-            initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
-            fare: computedTotalFare, status: 'WAITING', routeUpdated: false,
-            scheduleTime: scheduleTime || "Instan",
+            fare: computedTotalFare, status: 'WAITING',
+            note: note,
             timestamp: Date.now(),
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
@@ -1208,24 +1153,26 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
-                       `👤 Nama: ${name}\n` +
-                       `📱 WA Penumpang: ${formattedPhone}\n` +
-                       `📍 Jemput: ${pickup}\n` +
-                       `🏁 Tujuan: ${dropoff}\n` +
-                       `${timeMsg}\n` +
-                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}` +
-                       `${busyMsg}\n\n` +
-                       `Mohon konfirmasinya ya, terima kasih!`;
+        const waText = `PESANAN OJEG WA BARU!\n` +
+                       `------------------------------------\n` +
+                       `🔹 Nama: ${name}\n` +
+                       `🔹 WA Penumpang: ${formattedPhone}\n` +
+                       `🔹 Jemput: ${pickup}\n` +
+                       `🔹 Tujuan: ${dropoff}\n` +
+                       `🔹 Jarak Estimasi Peta: ${distKm} km\n` +
+                       `🔹 Total Tarif: Rp${computedTotalFare.toLocaleString('id-ID')}\n` +
+                       `🔹 Bayar: Tunai (Cash)\n` +
+                       `🔹 Catatan: ${note}\n` +
+                       `------------------------------------\n` +
+                       `Terima kasih!`;
 
         const directWaUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
 
         updatePassengerAppUI();
         updateDriverAppUI();
-        renderAllLiveMarkers();
         renderPassengerHistory();
 
-        alert("Membuka WhatsApp ke Driver. Silakan kirim pesan tersebut untuk konfirmasi penjemputan.");
+        alert("Membuka WhatsApp ke Driver. Silakan kirim pesan tersebut untuk memverifikasi orderan.");
         window.location.href = directWaUrl;
     }
 
@@ -1236,7 +1183,6 @@
             resetAddressAndFare();
             updatePassengerAppUI();
             updateDriverAppUI();
-            renderAllLiveMarkers();
             alert("Pesanan berhasil dibatalkan.");
         }
     }
@@ -1253,11 +1199,8 @@
         pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
 
-        updateMarker('jemput', pickupCoords, false);
-        updateMarker('tujuan', dropoffCoords, false);
-        map.fitBounds(L.latLngBounds(pickupCoords, dropoffCoords), {padding: [30, 30]});
-
         calculateFare();
+        switchPinMode('jemput');
         alert("Rute berhasil ditukar untuk perjalanan pulang (PP)!");
     }
 
@@ -1305,11 +1248,6 @@
         let order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         if (!order) return;
 
-        if (newStatus === 'HEADING_PICKUP' && !order.initialDropoffLat) {
-            order.initialDropoffLat = order.dropoffLat;
-            order.initialDropoffLng = order.dropoffLng;
-        }
-
         if (newStatus === 'FINISHED') {
             document.getElementById('recName').innerText = order.passengerName;
             document.getElementById('recPickup').innerText = order.pickup;
@@ -1334,13 +1272,11 @@
 
         updateDriverAppUI();
         updatePassengerAppUI();
-        renderAllLiveMarkers();
         renderFinanceAndHistory();
     }
 
     function closeReceiptModal() {
         document.getElementById('receiptModal').style.display = 'none';
-        renderAllLiveMarkers();
     }
 
     function openExpenseModal() {
@@ -1377,7 +1313,7 @@
         document.getElementById('expenseAmount').value = '';
         closeExpenseModal();
         renderFinanceAndHistory();
-        alert("Pengeluaran berhasil dicatat dan mengurangi total pendapatan!");
+        alert("Pengeluaran berhasil dicatat!");
     }
 
     function renderFinanceAndHistory() {
@@ -1453,56 +1389,23 @@
         window.open(gmapsUrl, '_blank');
     }
 
-    // PEMBAHARUAN UI & STATUS DENGAN LOGIKA RADIUS TERHUBUNG
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         const btnSend = document.getElementById('btnSendOrder');
         const btnCancel = document.getElementById('btnCancelOrder');
-        const btnSetJemput = document.getElementById('btnSetJemput');
-        const pickupInput = document.getElementById('pickupLocation');
-        const pickupLockLabel = document.getElementById('pickupLockLabel');
-
-        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
 
         if (!order) {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap Menerima Order`;
-            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim Orderan via WA Driver`;
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver`;
             btnSend.disabled = false;
             btnSend.classList.remove('btn-disabled');
             btnCancel.style.display = 'none';
-            
-            btnSetJemput.classList.remove('btn-disabled');
-            pickupInput.disabled = false;
-            pickupLockLabel.innerText = '';
             return;
         }
 
         btnCancel.style.display = 'flex';
-
-        let isNextOrderAllowed = false;
-        if (order.status === 'ON_TRIP' && driverGps && order.dropoffLat) {
-            const dropLatLng = L.latLng(order.dropoffLat, order.dropoffLng);
-            const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
-            const distToDropMeters = map.distance(driverLatLng, dropLatLng);
-
-            if (distToDropMeters <= 3000) {
-                isNextOrderAllowed = true;
-            }
-        }
-
-        const isLocked = (order.status !== 'WAITING');
-
-        if (isLocked) {
-            btnSetJemput.classList.add('btn-disabled');
-            pickupInput.disabled = true;
-            pickupLockLabel.innerText = ' (LOKASI DITERIMA DRIVER - TERKUNCI)';
-        } else {
-            btnSetJemput.classList.remove('btn-disabled');
-            pickupInput.disabled = false;
-            pickupLockLabel.innerText = '';
-        }
 
         if (order.status === 'WAITING') {
             statusBox.className = "status-box status-process";
@@ -1514,13 +1417,8 @@
             statusBox.className = "status-box status-arrived";
             statusBox.innerHTML = `<i class="fa-solid fa-location-dot"></i> Driver Telah Tiba di Titik Jemput!`;
         } else if (order.status === 'ON_TRIP') {
-            if (isNextOrderAllowed) {
-                statusBox.className = "status-box status-online";
-                statusBox.innerHTML = `<i class="fa-solid fa-route"></i> Driver Mendekati Lokasi! (Orderan Sambung Online)`;
-            } else {
-                statusBox.className = "status-box status-busy";
-                statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Driver Sedang Sibuk Mengantar Penumpang...`;
-            }
+            statusBox.className = "status-box status-busy";
+            statusBox.innerHTML = `<i class="fa-solid fa-ban"></i> Perjalanan Sedang Berlangsung...`;
         }
     }
 
@@ -1571,28 +1469,16 @@
                 </button>`;
         }
 
-        let routeAlertHTML = '';
-        if (order.routeUpdated) {
-            routeAlertHTML = `
-                <div style="background:#fff3cd; color:#856404; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:bold; border:1px solid #ffeeba;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Tujuan Diperbarui Penumpang!
-                </div>
-            `;
-        }
-
-        let scheduleHTML = (order.scheduleTime && order.scheduleTime !== 'Instan') ? `<p style="color:#e65100; font-weight:bold;"><i class="fa-solid fa-clock"></i> Minta Jemput: ${order.scheduleTime}</p>` : '';
-
         container.innerHTML = `
             <div class="order-card-driver">
                 <div style="display:flex; justify-content:space-between; font-weight:700;">
                     <span><i class="fa-solid fa-user"></i> ${order.passengerName}</span>
                     <span style="color: var(--primary-green-hover); font-size:16px;">Rp ${order.fare.toLocaleString('id-ID')}</span>
                 </div>
-                ${routeAlertHTML}
                 <div style="font-size:12px; background:#f9f9f9; padding:8px; border-radius:6px; display:flex; flex-direction:column; gap:4px;">
-                    ${scheduleHTML}
                     <p><strong style="color:#eb5757;"><i class="fa-solid fa-location-dot"></i> Jemput:</strong> ${order.pickup}</p>
-                    <p><strong style="color:#111;"><i class="fa-solid fa-flag-checkered"></i> Tujuan Terupdate:</strong> ${order.dropoff}</p>
+                    <p><strong style="color:#111;"><i class="fa-solid fa-flag-checkered"></i> Tujuan:</strong> ${order.dropoff}</p>
+                    <p><strong>Catatan:</strong> ${order.note || '-'}</p>
                 </div>
                 ${waBtnHTML}
                 ${navBtnHTML}
@@ -1602,7 +1488,6 @@
     }
 
     orderChannel.onmessage = function() {
-        renderAllLiveMarkers();
         calculateFare();
         updatePassengerAppUI();
         updateDriverAppUI();
