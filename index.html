@@ -587,6 +587,9 @@
 </div>
 
 <script>
+    // KUNCI MASTER AMAN (TIDAK BISA DIBOBOL DENGAN ANGKA ASAL)
+    const ADMIN_MASTER_KEY = "9922";
+
     function getStoredPin() {
         return localStorage.getItem('iqbike_driver_pin') || "8899";
     }
@@ -638,7 +641,7 @@
         document.getElementById('loginOverlay').style.display = 'flex';
     }
 
-    // PROTEKSI AKSES DRIVER + DEEP LINK INSTAN KE APLIKASI WA ADMIN
+    // PROTEKSI LOGIN + VALIDASI OTENTIKASI KETAT
     function selectUserRole(role) {
         if (role === 'driver') {
             const currentPin = getStoredPin();
@@ -646,7 +649,7 @@
             
             if (inputPin === null) return;
 
-            if (inputPin.toUpperCase() === 'LUPA') {
+            if (inputPin.trim().toUpperCase() === 'LUPA') {
                 sendDirectWaToAdmin();
                 return;
             }
@@ -675,26 +678,32 @@
         }
     }
 
-    // FUNGSI MEMBUKA APLIKASI WA KANTOR SECARA DIRECT (NATIVE DEEP LINK)
+    // FUNGSI LUPA PIN DENGAN KUNCI VALIDASI MASTER ADMIN
     function sendDirectWaToAdmin() {
         const waAdminPhone = "6285934602965";
-        const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon kirimkan kode OTP untuk reset PIN saya.";
-        
-        // FORMAT DEEP LINK KUSUS "whatsapp://" (MEMBUKA APPS WA TANPA LEWAT BROWSER)
+        const message = "Halo Admin IqBike, saya Lupa PIN Driver. Mohon berikan Kode Verifikasi Master untuk reset PIN.";
         const waUrl = `whatsapp://send?phone=${waAdminPhone}&text=${encodeURIComponent(message)}`;
 
+        // Buka WhatsApp Admin
         window.location.href = waUrl;
 
+        // Tampilkan Form Verifikasi dengan Validasi Kunci
         setTimeout(() => {
-            const userOtpInput = prompt("Masukkan Kode OTP yang diberikan oleh Admin WA:");
-            if (userOtpInput) {
-                const newPin = prompt("OTP Terverifikasi! Masukkan PIN Baru Anda (4 Digit Angka):");
-                if (newPin && newPin.length >= 4) {
-                    localStorage.setItem('iqbike_driver_pin', newPin);
+            const userOtpInput = prompt("Masukkan Kode Verifikasi dari Admin WA:");
+            
+            if (userOtpInput === null) return;
+
+            // CEK KETAT: HARUS SAMA PERSIS DENGAN KUNCI MASTER ADMIN
+            if (userOtpInput.trim() === ADMIN_MASTER_KEY) {
+                const newPin = prompt("Kode Terverifikasi! Masukkan PIN Baru Anda (4 Digit Angka):");
+                if (newPin && newPin.trim().length >= 4) {
+                    localStorage.setItem('iqbike_driver_pin', newPin.trim());
                     alert("PIN Berhasil diperbarui! Silakan login kembali dengan PIN baru Anda.");
                 } else {
                     alert("Gagal memperbarui PIN! PIN minimal 4 angka.");
                 }
+            } else {
+                alert("GAGAL: Kode Verifikasi Salah atau Tidak Valid! Reset PIN dibatalkan.");
             }
         }, 1200);
     }
@@ -705,8 +714,8 @@
         
         if (oldPinInput === currentPin) {
             const newPin = prompt("Masukkan PIN Baru Anda (4 Digit Angka):");
-            if (newPin && newPin.length >= 4) {
-                localStorage.setItem('iqbike_driver_pin', newPin);
+            if (newPin && newPin.trim().length >= 4) {
+                localStorage.setItem('iqbike_driver_pin', newPin.trim());
                 alert("PIN Berhasil Diubah!");
             } else {
                 alert("PIN baru harus minimal 4 digit angka.");
