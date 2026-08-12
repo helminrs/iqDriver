@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IqBike - System Hybrid inDrive Style</title>
 
-    <!-- HUBUNGAN KE FILE MANIFEST.JSON -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Leaflet OpenStreetMap -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -139,6 +134,7 @@
             height: 100%;
         }
 
+        /* INDIKATOR TOMBOL GPS (BIRU = CENTER, MERAH = OFF-CENTER) */
         .btn-my-location {
             position: absolute;
             bottom: 12px;
@@ -146,7 +142,7 @@
             width: 42px;
             height: 42px;
             background-color: #ffffff;
-            color: var(--accent-red);
+            color: var(--accent-blue);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -155,6 +151,7 @@
             z-index: 500;
             cursor: pointer;
             border: none;
+            transition: color 0.3s ease;
         }
 
         .content-area {
@@ -633,6 +630,9 @@
 </div>
 
 <script>
+    // URL FIREBASE REALTIME DATABASE UNTUK MENGHUBUNGKAN APLIKASI ANTAR HP REALTIME
+    const FIREBASE_DB_URL = "https://iqbike-default-rtdb.firebaseio.com/";
+
     const ADMIN_MASTER_KEY = "9922";
 
     function getStoredPin() {
@@ -647,8 +647,6 @@
     let userRole = null; 
     let computedTotalFare = 9000;
     let searchDebounce = null;
-
-    const orderChannel = new BroadcastChannel('iqbike_system');
 
     const redPinIcon = L.divIcon({
         html: '<i class="fa-solid fa-location-dot" style="font-size:24px; color:#eb5757;"></i>',
@@ -674,10 +672,49 @@
         if ("vibrate" in navigator) navigator.vibrate(pattern);
     }
 
-    // INISIALISASI PETA: AUTO FOCUS KE GPS NYATA SAAT REFRESH
+    // FUNGSI API FIREBASE UNTUK REALTIME ANTAR HP
+    function syncFirebaseData(path, data) {
+        fetch(`${FIREBASE_DB_URL}${path}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        }).catch(() => {});
+    }
+
+    function listenFirebaseData() {
+        setInterval(() => {
+            fetch(`${FIREBASE_DB_URL}.json`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data) {
+                        if (data.driverGps) localStorage.setItem('iqbike_driver_gps', JSON.stringify(data.driverGps));
+                        if (data.passengerGps) localStorage.setItem('iqbike_passenger_gps', JSON.stringify(data.passengerGps));
+                        if (data.activeOrder) localStorage.setItem('iqbike_active_order', JSON.stringify(data.activeOrder));
+                        else localStorage.removeItem('iqbike_active_order');
+                        
+                        renderAllLiveMarkers();
+                        updatePassengerAppUI();
+                        updateDriverAppUI();
+                    }
+                }).catch(() => {});
+        }, 2000);
+    }
+
     function initMap() {
         map = L.map('map', { zoomControl: false }).setView([userCurrentLat, userCurrentLng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        // DETEKSI GESER PETA UNTUK MERUBAH WARNA TOMBOL GPS (BIRU vs MERAH)
+        map.on('moveend', () => {
+            const center = map.getCenter();
+            const btn = document.getElementById('btnMyLocation');
+            const dist = map.distance(center, L.latLng(userCurrentLat, userCurrentLng));
+
+            if (dist > 50) {
+                btn.style.color = 'var(--accent-red)'; // MERAH: Off-Center
+            } else {
+                btn.style.color = 'var(--accent-blue)'; // BIRU: Pas di lokasi GPS
+            }
+        });
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
@@ -691,6 +728,7 @@
         }
 
         startLiveGpsTracking();
+        listenFirebaseData();
     }
 
     function showLoginOverlay() {
@@ -782,16 +820,11 @@
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('currentRoleText').innerText = (role === 'penumpang') ? 'Mode: Penumpang' : 'Mode: Driver';
 
-        //UBAH WARNA TOMBOL GPS
-        const btnLocation = document.getElementById('btnMyLocation');
-
         if (role === 'penumpang') {
-            btnLocation.style.color = 'var(--accent-red)'; // Merah Penumpang
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
             updatePassengerAppUI();
         } else {
-            btnLocation.style.color = 'var(--accent-blue)'; // Biru Driver
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
             updateDriverAppUI();
@@ -809,11 +842,12 @@
 
                 if (userRole === 'penumpang') {
                     localStorage.setItem('iqbike_passenger_gps', JSON.stringify(currentPos));
+                    syncFirebaseData('passengerGps', currentPos);
                 } else if (userRole === 'driver') {
                     localStorage.setItem('iqbike_driver_gps', JSON.stringify(currentPos));
+                    syncFirebaseData('driverGps', currentPos);
                 }
 
-                orderChannel.postMessage({ type: 'GPS_UPDATE' });
                 renderAllLiveMarkers();
             }, null, { enableHighAccuracy: true });
         }
@@ -852,6 +886,7 @@
     function centerToMyLocation() {
         const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
         map.setView(currentLatLng, 16);
+        document.getElementById('btnMyLocation').style.color = 'var(--accent-blue)'; // UBAH MENJADI BIRU SAAT DI-CENTER
 
         if (!pickupCoords) pickupCoords = currentLatLng;
         if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
@@ -1075,7 +1110,7 @@
         }
 
         localStorage.setItem('iqbike_active_order', JSON.stringify(order));
-        orderChannel.postMessage({ type: 'NEW_ORDER' });
+        syncFirebaseData('activeOrder', order);
         triggerVibration([200, 100, 200]);
         
         updatePassengerAppUI();
@@ -1106,12 +1141,13 @@
             localStorage.setItem('iqbike_history', JSON.stringify(history));
 
             localStorage.removeItem('iqbike_active_order');
+            syncFirebaseData('activeOrder', null);
         } else {
             order.status = newStatus;
             localStorage.setItem('iqbike_active_order', JSON.stringify(order));
+            syncFirebaseData('activeOrder', order);
         }
 
-        orderChannel.postMessage({ type: 'STATUS_CHANGE' });
         triggerVibration([500]);
 
         updateDriverAppUI();
@@ -1368,14 +1404,6 @@
             </div>
         `;
     }
-
-    orderChannel.onmessage = function() {
-        renderAllLiveMarkers();
-        calculateFare();
-        updatePassengerAppUI();
-        updateDriverAppUI();
-        renderFinanceAndHistory();
-    };
 
     window.onload = function() {
         initMap();
