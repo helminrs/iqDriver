@@ -187,7 +187,6 @@
             border: 1px solid var(--border-color);
         }
 
-        /* LAYOUT PETA FULL DRIVER */
         .map-wrapper-full {
             flex: 1;
             width: 100%;
@@ -576,7 +575,6 @@
             overflow-y: auto;
         }
 
-        /* POPUP FLOATING RADAR OVERLAY (HANYA MUNCUL SAAT ADA ORDERAN MASUK) */
         .floating-radar-overlay {
             position: absolute;
             bottom: 0;
@@ -598,7 +596,6 @@
             to { transform: translateY(0); }
         }
 
-        /* BADGE STATUS MINI DI ATAS PETA SAAT SEPI ORDERAN */
         .mini-gps-badge {
             position: absolute;
             bottom: 16px;
@@ -871,7 +868,6 @@
                 </div>
             </div>
 
-            <!-- PETA MEMENUHI TAMPILAN FULL LAYAR -->
             <div id="driverMapContainer" class="map-wrapper-full">
                 <!-- Peta disisipkan via JS -->
             </div>
@@ -880,7 +876,6 @@
                 <i class="fa-solid fa-signal"></i> GPS DRIVER ONLINE
             </div>
 
-            <!-- POPUP FLOATING RADAR OVERLAY (OTOMATIS MUNCUL SAAT ADA ORDERAN BERJALAN) -->
             <div id="floatingRadarPanel" class="floating-radar-overlay" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-weight: 800; font-size: 13px; color:#222;">
@@ -1505,12 +1500,20 @@
         });
     }
 
+    // FUNGSI WA DRIVER DENGAN TAUTAN LOKASI GPS TERKINI
     function openPassengerWa(phone, name) {
         if (!phone) {
             alert("Nomor WhatsApp penumpang tidak ditemukan!");
             return;
         }
-        const text = `Halo Kak ${name}, saya Driver iqBike yang menerima orderan Anda. Mohon ditunggu ya, saya sedang menuju ke lokasi penjemputan.`;
+
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps')) || { lat: userCurrentLat, lng: userCurrentLng };
+        const driverLocationUrl = `https://maps.google.com/?q=${driverGps.lat},${driverGps.lng}`;
+
+        const text = `Halo Kak ${name}, saya Driver iqBike yang akan menjemput Anda.\n\n` +
+                     `📍 *Lokasi Terkini Driver:* ${driverLocationUrl}\n\n` +
+                     `Saya sedang menuju ke titik penjemputan. Mohon ditunggu ya Kak, terima kasih!`;
+
         const waUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
         window.location.href = waUrl;
     }
@@ -1729,7 +1732,6 @@
         }
     }
 
-    // UPDATE UI DRIVER: PETA FULL SCREEN & POPUP OVERLAY KETIKA ADA ORDERAN AKTIFF
     function updateDriverAppUI() {
         const container = document.getElementById('orderListContainer');
         const floatingPanel = document.getElementById('floatingRadarPanel');
