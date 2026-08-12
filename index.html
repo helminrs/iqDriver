@@ -821,6 +821,15 @@ function applyCoordinates(type, lat, lng, inputId, container) {
         fetchAddress(type, newLatLng);
     }
 }
+<!-- Contoh Antarmuka Input Lokasi yang Lebih Ramah Pengguna -->
+<div class="form-group">
+    <label class="form-label">Lokasi Tujuan</label>
+    <input type="text" id="dropoffLocation" class="form-input" 
+           placeholder="Ketik nama tempat atau paste koordinat (-7.xxx, 107.xxx)...">
+    <small style="font-size: 10px; color: #666; margin-top: 2px;">
+        💡 *Tips:* Paste angka koordinat dari Google Maps agar lokasi 100% presisi.
+    </small>
+</div>
 // FUNGSI PEMBANTU PENCARIAN OSM
 function executeSearchQuery(type, searchQuery, container, inputId) {
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=id&limit=5`)
