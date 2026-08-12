@@ -272,9 +272,25 @@
             color: var(--accent-red);
             border: 1px solid var(--accent-red);
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             cursor: pointer;
+        }
+
+        .btn-cancel {
+            width: 100%;
+            padding: 12px;
+            background-color: #eb5757;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         .btn-submit {
@@ -406,6 +422,22 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
+        }
+
+        .btn-swap-route {
+            background: #2f80ed;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            align-self: flex-start;
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -551,33 +583,53 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">* (Penting untuk Verifikasi WA)</span></label>
+                <label class="form-label">Nomor WhatsApp Anda <span style="color:red">*</span></label>
                 <input type="tel" id="passengerPhone" class="form-input" placeholder="Contoh: 081234567890">
             </div>
 
             <div class="form-group">
-                <label class="form-label">Lokasi Penjemputan <span id="pickupLockLabel" style="color:red; font-size:10px;"></span></label>
-                <input type="text" id="pickupLocation" class="form-input" placeholder="Cari tempat / paste koordinat (-7.xxx, 107.xxx)..." oninput="handleSearchOrPaste('jemput')">
+                <label class="form-label">Lokasi Penjemputan <span style="color:red">*</span> <span id="pickupLockLabel" style="color:red; font-size:10px;"></span></label>
+                <input type="text" id="pickupLocation" class="form-input" placeholder="Wajib tentukan titik jemput..." oninput="handleSearchOrPaste('jemput')">
                 <div id="pickupSearchResults" class="search-results"></div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Lokasi Tujuan (Bisa Diubah Saat Perjalanan)</label>
-                <input type="text" id="dropoffLocation" class="form-input" placeholder="Cari tempat / paste koordinat (-7.xxx, 107.xxx)..." oninput="handleSearchOrPaste('tujuan')">
+                <label class="form-label">Lokasi Tujuan <span style="color:red">*</span></label>
+                <input type="text" id="dropoffLocation" class="form-input" placeholder="Wajib tentukan titik tujuan..." oninput="handleSearchOrPaste('tujuan')">
                 <div id="dropoffSearchResults" class="search-results"></div>
             </div>
 
-            <div class="fare-card">
-                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 15px;">Rp 9.000</span>
+            <div class="form-group">
+                <label class="form-label">Jam Penjemputan (Optional / Jika Driver Sibuk)</label>
+                <input type="time" id="pickupTimeSchedule" class="form-input">
             </div>
 
-            <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
-                <i class="fa-solid fa-rotate-left"></i> Batal Ubah & Batal Ongkos Tambahan
-            </button>
+            <div class="fare-card">
+                Estimasi Total Ongkos: <span id="fareText" style="color: var(--primary-green-hover); font-size: 15px;">Rp 0</span>
+            </div>
 
-            <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
-                <i class="fa-brands fa-whatsapp"></i> Kirim & Verifikasi Orderan via WA Driver
-            </button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <button id="btnSendOrder" class="btn-submit" type="button" onclick="sendOrder()">
+                    <i class="fa-brands fa-whatsapp"></i> Kirim Orderan via WA Driver
+                </button>
+                
+                <button id="btnCancelOrder" class="btn-cancel" type="button" onclick="cancelActiveOrder()" style="display:none;">
+                    <i class="fa-solid fa-xmark"></i> Batalkan Pesanan Ini
+                </button>
+
+                <button type="button" class="btn-reset" onclick="resetAddressAndFare()">
+                    <i class="fa-solid fa-rotate-left"></i> Batal Ubah / Reset Rute
+                </button>
+            </div>
+
+            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 12px;">
+                <span style="font-weight: 700; font-size: 13px; color:#444;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Perjalanan Anda (Bisa PP)
+                </span>
+                <div id="passengerHistoryContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                    <p style="font-size: 11px; color: #a0a0a0; text-align:center;">Belum ada riwayat pesanan.</p>
+                </div>
+            </div>
         </div>
 
         <div id="driverView" style="display: none; flex-direction: column; gap: 12px;">
@@ -645,7 +697,7 @@
 </div>
 
 <script>
-    const DRIVER_WA_PHONE = "6285934602965"; // NOMOR WA DRIVER TUNGGAL / ADMIN
+    const DRIVER_WA_PHONE = "6285934602965";
     const ADMIN_MASTER_KEY = "9922";
 
     function getStoredPin() {
@@ -663,7 +715,7 @@
     
     let isInitialMapCenterDone = false;
     let userRole = null; 
-    let computedTotalFare = 9000;
+    let computedTotalFare = 0;
     let searchDebounce = null;
 
     const orderChannel = new BroadcastChannel('iqbike_system');
@@ -814,6 +866,7 @@
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
             updatePassengerAppUI();
+            renderPassengerHistory();
         } else {
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
@@ -872,11 +925,8 @@
         }
 
         if (userRole === 'penumpang') {
-            if (!pickupCoords) pickupCoords = L.latLng(userCurrentLat, userCurrentLng);
-            if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-            
-            updateMarker('jemput', pickupCoords);
-            updateMarker('tujuan', dropoffCoords);
+            if (pickupCoords) updateMarker('jemput', pickupCoords);
+            if (dropoffCoords) updateMarker('tujuan', dropoffCoords);
         } else if (userRole === 'driver') {
             if (order && (order.status === 'HEADING_PICKUP' || order.status === 'ARRIVED' || order.status === 'ON_TRIP')) {
                 if (order.pickupLat && order.pickupLng) updateMarker('jemput', L.latLng(order.pickupLat, order.pickupLng));
@@ -895,9 +945,7 @@
 
         if (userRole === 'penumpang') {
             if (!pickupCoords) pickupCoords = currentLatLng;
-            if (!dropoffCoords) dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
             updateMarker('jemput', pickupCoords);
-            updateMarker('tujuan', dropoffCoords);
         }
     }
 
@@ -916,7 +964,6 @@
                     fetchAddress('jemput', pickupCoords);
                     calculateFare();
                 });
-                fetchAddress('jemput', latlng);
             }
         } else {
             if (dropoffMarker) map.removeLayer(dropoffMarker);
@@ -929,7 +976,6 @@
                     fetchAddress('tujuan', dropoffCoords);
                     calculateFare();
                 });
-                fetchAddress('tujuan', latlng);
             }
         }
         calculateFare();
@@ -943,6 +989,9 @@
 
         if (!query) {
             container.style.display = 'none';
+            if (type === 'jemput' && pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; pickupCoords = null; }
+            if (type === 'tujuan' && dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; dropoffCoords = null; }
+            calculateFare();
             return;
         }
 
@@ -1046,7 +1095,11 @@
     }
 
     function calculateFare() {
-        if (!pickupCoords || !dropoffCoords) return;
+        if (!pickupCoords || !dropoffCoords) {
+            computedTotalFare = 0;
+            document.getElementById('fareText').innerText = "Rp 0";
+            return;
+        }
 
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
 
@@ -1077,27 +1130,34 @@
     }
 
     function resetAddressAndFare() {
-        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
-        if (!order || order.status === 'WAITING') {
-            const currentLatLng = L.latLng(userCurrentLat, userCurrentLng);
-            pickupCoords = currentLatLng;
-            dropoffCoords = L.latLng(userCurrentLat + 0.003, userCurrentLng + 0.003);
-            updateMarker('jemput', pickupCoords);
-            updateMarker('tujuan', dropoffCoords);
-        } else {
-            dropoffCoords = L.latLng(order.initialDropoffLat, order.initialDropoffLng);
-            updateMarker('tujuan', dropoffCoords);
-        }
+        document.getElementById('pickupLocation').value = '';
+        document.getElementById('dropoffLocation').value = '';
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        if (dropoffMarker) map.removeLayer(dropoffMarker);
+        pickupMarker = null; dropoffMarker = null;
+        pickupCoords = null; dropoffCoords = null;
         calculateFare();
-        alert("Batal penyesuaian alamat. Kembali ke lokasi & ongkos awal.");
+        alert("Lokasi dan rute berhasil di-reset.");
     }
 
-    // FUNGSI UTAMA PENGIRIMAN ORDERAN VIA WHATSAPP DIRECT VERIFICATION
+    // FUNGSI UTAMA PENGIRIMAN ORDERAN PENUMPANG (VALIDASI KETAT LOKASI)
     function sendOrder() {
         const rawPhone = document.getElementById('passengerPhone').value.trim();
         const name = document.getElementById('passengerName').value.trim();
-        const pickup = document.getElementById('pickupLocation').value;
-        const dropoff = document.getElementById('dropoffLocation').value;
+        const pickup = document.getElementById('pickupLocation').value.trim();
+        const dropoff = document.getElementById('dropoffLocation').value.trim();
+        const scheduleTime = document.getElementById('pickupTimeSchedule').value.trim();
+
+        // VALIDASI KETAT TITIK JEMPUT & TUJUAN
+        if (!pickup || !pickupCoords) {
+            alert("⚠️ LOKASI JEMPUT KOSONG!\n\nHarap tentukan Lokasi Penjemputan di peta atau cari nama tempat terlebih dahulu.");
+            return;
+        }
+
+        if (!dropoff || !dropoffCoords) {
+            alert("⚠️ LOKASI TUJUAN KOSONG!\n\nHarap tentukan Lokasi Tujuan di peta atau cari nama tempat terlebih dahulu.");
+            return;
+        }
 
         if (!name) {
             alert("Harap masukkan Nama Anda!");
@@ -1111,6 +1171,25 @@
 
         const formattedPhone = formatWaNumber(rawPhone);
 
+        // CEK STATUS DRIVER
+        const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
+        const driverGps = JSON.parse(localStorage.getItem('iqbike_driver_gps'));
+
+        let isDriverBusy = false;
+        if (order && order.status === 'ON_TRIP') {
+            const dropLatLng = L.latLng(order.dropoffLat, order.dropoffLng);
+            if (driverGps) {
+                const driverLatLng = L.latLng(driverGps.lat, driverGps.lng);
+                const distToDrop = map.distance(driverLatLng, dropLatLng);
+                if (distToDrop > 3000) isDriverBusy = true; // Lebih dari 3km masih sibuk
+            } else {
+                isDriverBusy = true;
+            }
+        }
+
+        let timeMsg = scheduleTime ? `🕒 Minta Dijemput Jam: ${scheduleTime}` : `⏱️ Dijemput: Secepatnya / Instan`;
+        let busyMsg = isDriverBusy ? `\n\n*(Catatan Penumpang: Saya tahu Driver sedang bertugas, mohon konfirmasinya apakah bisa dijemput di jam ini/setelah selesai).*` : ``;
+
         const newOrder = {
             id: Date.now(), 
             passengerName: name, 
@@ -1120,6 +1199,7 @@
             dropoffLat: dropoffCoords.lat, dropoffLng: dropoffCoords.lng,
             initialDropoffLat: dropoffCoords.lat, initialDropoffLng: dropoffCoords.lng,
             fare: computedTotalFare, status: 'WAITING', routeUpdated: false,
+            scheduleTime: scheduleTime || "Instan",
             timestamp: Date.now(),
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
@@ -1128,24 +1208,95 @@
         orderChannel.postMessage({ type: 'NEW_ORDER' });
         triggerVibration([200, 100, 200]);
 
-        // PESAN DIRECT YANG WAJIB DIKIRIM PENUMPANG KE WA DRIVER
+        // SIMPAN KE RIWAYAT PENUMPANG UNTUK FITUR PP (PERGI-PULANG)
+        let passHistory = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
+        passHistory.unshift(newOrder);
+        localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
+
         const waText = `Halo Driver IqBike, saya mau order ojek online:\n\n` +
                        `👤 Nama: ${name}\n` +
                        `📱 WA Penumpang: ${formattedPhone}\n` +
                        `📍 Jemput: ${pickup}\n` +
                        `🏁 Tujuan: ${dropoff}\n` +
-                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n\n` +
-                       `Mohon dikonfirmasi ya, terima kasih!`;
+                       `${timeMsg}\n` +
+                       `💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}` +
+                       `${busyMsg}\n\n` +
+                       `Mohon konfirmasinya ya, terima kasih!`;
 
         const directWaUrl = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
 
         updatePassengerAppUI();
         updateDriverAppUI();
         renderAllLiveMarkers();
+        renderPassengerHistory();
 
-        alert("Aplikasi akan membuka WhatsApp untuk verifikasi nomor Anda. Silakan tekan SEND/KIRIM pada pesan yang otomatis disiapkan untuk memverifikasi orderan Anda ke Driver.");
-        
+        alert("Membuka WhatsApp ke Driver. Silakan kirim pesan tersebut untuk konfirmasi penjemputan.");
         window.location.href = directWaUrl;
+    }
+
+    function cancelActiveOrder() {
+        if (confirm("Apakah Anda yakin ingin membatalkan pesanan ini?")) {
+            localStorage.removeItem('iqbike_active_order');
+            orderChannel.postMessage({ type: 'STATUS_CHANGE' });
+            resetAddressAndFare();
+            updatePassengerAppUI();
+            updateDriverAppUI();
+            renderAllLiveMarkers();
+            alert("Pesanan berhasil dibatalkan.");
+        }
+    }
+
+    // FITUR TUKAR RUTE AUTOMATIS (PERGI-PULANG / PP)
+    function swapRouteFromHistory(itemIndex) {
+        const passHistory = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
+        const item = passHistory[itemIndex];
+
+        if (!item) return;
+
+        // Tukar titik alamat
+        document.getElementById('pickupLocation').value = item.dropoff;
+        document.getElementById('dropoffLocation').value = item.pickup;
+
+        // Tukar koordinat
+        pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
+        dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
+
+        updateMarker('jemput', pickupCoords);
+        updateMarker('tujuan', dropoffCoords);
+        map.fitBounds(L.latLngBounds(pickupCoords, dropoffCoords), {padding: [30, 30]});
+
+        calculateFare();
+        alert("Rute berhasil ditukar untuk perjalanan pulang (PP)!");
+    }
+
+    function renderPassengerHistory() {
+        const container = document.getElementById('passengerHistoryContainer');
+        const passHistory = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
+
+        if (passHistory.length === 0) {
+            container.innerHTML = '<p style="font-size: 11px; color: #a0a0a0; text-align:center;">Belum ada riwayat pesanan.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        passHistory.slice(0, 5).forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'history-card';
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                    <span><i class="fa-solid fa-route"></i> Perjalanan ${item.time}</span>
+                    <span style="color:#27ae60;">Rp ${item.fare.toLocaleString('id-ID')}</span>
+                </div>
+                <div style="color:#666; font-size:11px; margin-top:2px;">
+                    <div><strong>Jemput:</strong> ${item.pickup}</div>
+                    <div><strong>Tujuan:</strong> ${item.dropoff}</div>
+                </div>
+                <button class="btn-swap-route" onclick="swapRouteFromHistory(${index})">
+                    <i class="fa-solid fa-arrows-rotate"></i> Tukar Rute untuk Pulang (PP)
+                </button>
+            `;
+            container.appendChild(card);
+        });
     }
 
     function openPassengerWa(phone, name) {
@@ -1314,6 +1465,7 @@
         const statusBox = document.getElementById('driverStatusBox');
         const order = JSON.parse(localStorage.getItem('iqbike_active_order'));
         const btnSend = document.getElementById('btnSendOrder');
+        const btnCancel = document.getElementById('btnCancelOrder');
         const btnSetJemput = document.getElementById('btnSetJemput');
         const pickupInput = document.getElementById('pickupLocation');
         const pickupLockLabel = document.getElementById('pickupLockLabel');
@@ -1323,15 +1475,18 @@
         if (!order) {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap Menerima Order`;
-            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim & Verifikasi Orderan via WA Driver`;
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim Orderan via WA Driver`;
             btnSend.disabled = false;
             btnSend.classList.remove('btn-disabled');
+            btnCancel.style.display = 'none';
             
             btnSetJemput.classList.remove('btn-disabled');
             pickupInput.disabled = false;
             pickupLockLabel.innerText = '';
             return;
         }
+
+        btnCancel.style.display = 'flex';
 
         let isNextOrderAllowed = false;
         if (order.status === 'ON_TRIP' && driverGps && order.dropoffLat) {
@@ -1432,6 +1587,8 @@
             `;
         }
 
+        let scheduleHTML = (order.scheduleTime && order.scheduleTime !== 'Instan') ? `<p style="color:#e65100; font-weight:bold;"><i class="fa-solid fa-clock"></i> Minta Jemput Jam: ${order.scheduleTime}</p>` : '';
+
         container.innerHTML = `
             <div class="order-card-driver">
                 <div style="display:flex; justify-content:space-between; font-weight:700;">
@@ -1440,6 +1597,7 @@
                 </div>
                 ${routeAlertHTML}
                 <div style="font-size:12px; background:#f9f9f9; padding:8px; border-radius:6px; display:flex; flex-direction:column; gap:4px;">
+                    ${scheduleHTML}
                     <p><strong style="color:#eb5757;"><i class="fa-solid fa-location-dot"></i> Jemput:</strong> ${order.pickup}</p>
                     <p><strong style="color:#111;"><i class="fa-solid fa-flag-checkered"></i> Tujuan Terupdate:</strong> ${order.dropoff}</p>
                 </div>
@@ -1456,6 +1614,7 @@
         updatePassengerAppUI();
         updateDriverAppUI();
         renderFinanceAndHistory();
+        renderPassengerHistory();
     };
 
     window.onload = function() {
