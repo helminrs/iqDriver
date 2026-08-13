@@ -279,6 +279,7 @@
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
+    // Status online driver dipertahankan stabil dengan default true
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
@@ -765,11 +766,23 @@
         const statusBox = document.getElementById('driverStatusBox');
         if (!statusBox) return;
 
-        let anyDriverOnline = Object.values(window.allDriversData || {}).some(d => d.online && (Date.now() - d.updatedAt < 45000));
+        // Cek apakah ada driver online dalam radius 10 km (10000 meter) dari posisi penumpang
+        let onlineDriverInRange = false;
+        const passengerLatLng = L.latLng(userCurrentLat, userCurrentLng);
 
-        if (!anyDriverOnline) {
+        Object.values(window.allDriversData || {}).forEach(d => {
+            if (d.online && (Date.now() - d.updatedAt < 45000)) {
+                const driverLatLng = L.latLng(d.lat, d.lng);
+                const distanceMeters = passengerLatLng.distanceTo(driverLatLng);
+                if (distanceMeters <= 10000) { // Radius 10 KM
+                    onlineDriverInRange = true;
+                }
+            }
+        });
+
+        if (!onlineDriverInRange) {
             statusBox.className = "status-box status-offline";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline`;
+            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline / Di Luar Radius`;
         } else {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
@@ -841,7 +854,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi Real-Time Multi-Driver dan Statusnya ke Semua HP
+        // Sinkronisasi Real-Time Multi-Driver dan Statusnya ke Semua HP (Tanpa menimpa state lokal saat refresh)
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -850,16 +863,13 @@
                 activeDriverIds.add(dId);
                 window.allDriversData[dId] = data;
 
-                // Jika perangkat ini bertindak sebagai driver mandiri, sinkronkan status online lokal dengan cloud secara instan
+                // Jika perangkat ini bertindak sebagai driver, sinkronkan tombol UI dengan local storage yang aman
                 if (dId === myDriverId && userRole === 'driver') {
-                    if (typeof data.online === 'boolean' && data.online !== isDriverOnline) {
-                        isDriverOnline = data.online;
-                        localStorage.setItem('iqbike_driver_online_state', isDriverOnline);
-                        applyDriverOnlineUIState();
-                    }
+                    // Biarkan status driver mengikuti localStorage yang di-klik user tanpa dipaksa balik oleh cloud saat refresh awal
+                    applyDriverOnlineUIState();
                 }
 
-                // Render ikon driver di peta penumpang (hijau jika online, abu-abu jika offline tapi buka app)
+                // Render ikon driver di peta penumpang (hijau jika online, abu-abu jika offline tapi buka aplikasi)
                 if (userRole === 'penumpang' && map) {
                     if (Date.now() - data.updatedAt > 60000) return;
 
