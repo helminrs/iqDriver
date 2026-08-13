@@ -407,12 +407,10 @@
                 lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         } else if (userRole === 'driver') {
-            // Gabungkan status online dan koordinat dalam 1 dokumen terpusat agar langsung sinkron global
+            // Simpan status dan koordinat ke dokumen tunggal pusat agar langsung terbaca global
             setDoc(doc(window.db, "drivers_online", fixedDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
-            
-            setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true }).catch(e => {});
         }
     }
 
@@ -437,7 +435,6 @@
         
         try {
             const { doc, setDoc } = window.firebaseModules;
-            await setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true });
             await setDoc(doc(window.db, "drivers_online", fixedDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true });
@@ -837,26 +834,22 @@
             updateDriverAppUI();
         });
 
-        // 2. Listen Driver Status Global (Sinkron Antar HP secara Instan)
-        onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
+        // 2. Listen Global Driver Data (Posisi & Status Online/Offline langsung sinkron global antar HP)
+        onSnapshot(doc(window.db, "drivers_online", fixedDriverId), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
+                const latLng = [data.lat, data.lng];
+                
+                // Update status global driver
                 if (typeof data.online === 'boolean') {
                     isDriverOnline = data.online;
                     localStorage.setItem('iqbike_driver_online_state', isDriverOnline);
-                    applyDriverOnlineUIState();
+                    if (userRole === 'driver') applyDriverOnlineUIState();
                     updatePassengerAppUI();
-                    updateDriverAppUI();
                 }
-            }
-        });
 
-        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver SELALU MUNCUL & bergerak real-time, baik online maupun offline)
-        onSnapshot(doc(window.db, "drivers_online", fixedDriverId), docSnap => {
-            if (userRole === 'penumpang' && map) {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const latLng = [data.lat, data.lng];
+                // Render atau update ikon driver secara real-time di HP Penumpang
+                if (userRole === 'penumpang' && map) {
                     if (cloudDriverLiveMarker) {
                         cloudDriverLiveMarker.setLatLng(latLng);
                     } else {
@@ -866,7 +859,7 @@
             }
         });
 
-        // 4. Listen Live Penumpang di HP Driver
+        // 3. Listen Live Penumpang di HP Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activeIds = new Set();
