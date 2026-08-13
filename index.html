@@ -62,8 +62,6 @@
         .status-box { padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; }
         .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
         .status-offline { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
-        .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
-        .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
         .form-row-2cols { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; flex-shrink: 0; }
         .form-group { display: flex; flex-direction: column; gap: 2px; position: relative; flex-shrink: 0; }
@@ -86,9 +84,8 @@
         .btn-toggle-online.offline { background: #eb5757; }
 
         .order-card-driver { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
-        .btn-whatsapp, .btn-nav-gmaps, .driver-step-btn { width: 100%; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; color: #fff; }
+        .btn-whatsapp, .driver-step-btn { width: 100%; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; color: #fff; }
         .btn-whatsapp { background-color: var(--whatsapp-green); }
-        .btn-nav-gmaps { background-color: #4285f4; }
         .btn-accept { background-color: var(--accent-blue); }
         .btn-arrived { background-color: var(--accent-orange); }
         .btn-trip { background-color: var(--primary-green); color: #111; }
@@ -107,10 +104,9 @@
         .btn-repeat-order { flex: 1; background: #27ae60; color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
 
         .modal-detail-card { background: #fff; color: #222; width: 100%; max-width: 420px; max-height: 80vh; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: 0 -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
+        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
         .mini-gps-badge { position: absolute; bottom: 16px; left: 16px; background: rgba(18, 18, 18, 0.85); color: #8cc63f; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; display: flex; align-items: center; gap: 6px; }
 
-        /* Custom Professional Map Markers (Clean Transparent Background) */
         .leaflet-div-icon { background: transparent; border: none; }
     </style>
 </head>
@@ -251,7 +247,7 @@
 <!-- FIREBASE SDK & CLOUD SYSTEM -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, deleteDoc, updateDoc, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyD4SLa6TNoXxWgfqO8KfnCaOacbtOG0uKc",
@@ -266,7 +262,7 @@
     const db = getFirestore(app);
 
     window.db = db;
-    window.firebaseModules = { doc, setDoc, onSnapshot, deleteDoc, updateDoc };
+    window.firebaseModules = { doc, setDoc, onSnapshot, deleteDoc, updateDoc, collection };
 
     if (window.initializeIqBikeApp) window.initializeIqBikeApp();
 </script>
@@ -278,39 +274,34 @@
     let map, currentPinMode = null;
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
+    let passengerCloudMarkers = {}; // Menyimpan marker live semua penumpang online
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     let isDriverOnline = true;
     let searchDebounce = null, reverseGeocodeTimeout = null;
+    const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
 
-    // Professional Markers Style (Transparent background, clean shadow drop)
+    // Marker styling: Ukuran penumpang lebih besar dan mendominasi daripada icon driver
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
-        iconSize: [30,30], 
-        iconAnchor: [15,30],
-        className: 'custom-leaflet-icon'
+        iconSize: [30,30], iconAnchor: [15,30], className: 'custom-leaflet-icon'
     });
 
     const finishFlagIcon = L.divIcon({ 
         html: '<div style="background:#222; color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-flag-checkered" style="font-size:12px;"></i></div>', 
-        iconSize: [28,28], 
-        iconAnchor: [14,14],
-        className: 'custom-leaflet-icon'
+        iconSize: [28,28], iconAnchor: [14,14], className: 'custom-leaflet-icon'
     });
 
+    // Icon motor driver proporsional & lebih kecil dibanding titik biru penumpang
     const driverMotorIcon = L.divIcon({ 
-        html: '<div style="background:#27ae60; color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:13px;"></i></div>', 
-        iconSize: [30,30], 
-        iconAnchor: [15,15],
-        className: 'custom-leaflet-icon'
+        html: '<div style="background:#27ae60; color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:11px;"></i></div>', 
+        iconSize: [26,26], iconAnchor: [13,13], className: 'custom-leaflet-icon'
     });
 
-    // GO-JEK/GRAB STYLE: Passenger large blue pulse dot with white center inner circle
+    // Icon titik biru penumpang (BESAR & dominan dengan titik putih di tengah khas InDrive/Gojek)
     const passengerBlueDotIcon = L.divIcon({ 
-        html: '<div style="position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center;"><div style="position:absolute; width:34px; height:34px; background:rgba(2,136,209,0.25); border-radius:50%; animation: pulseRing 2s infinite;"></div><div style="width:18px; height:18px; background:#0288d1; border:3px solid #ffffff; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3); z-index:2;"></div></div>', 
-        iconSize: [34,34], 
-        iconAnchor: [17,17],
-        className: 'custom-leaflet-icon'
+        html: '<div style="position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center;"><div style="position:absolute; width:38px; height:38px; background:rgba(2,136,209,0.3); border-radius:50%; animation: pulseRing 2s infinite;"></div><div style="width:20px; height:20px; background:#0288d1; border:3px solid #ffffff; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:2;"></div></div>', 
+        iconSize: [38,38], iconAnchor: [19,19], className: 'custom-leaflet-icon'
     });
 
     function initMap() {
@@ -370,6 +361,13 @@
     }
 
     function renderFixedMarkers() {
+        // Hapus pin & bendera jika belum ada order aktif atau sedang tidak mode set lokasi
+        if (!activeCloudOrder && userRole === 'driver') {
+            if(pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+            if(dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+            return;
+        }
+
         if (pickupCoords) {
             if (!pickupMarker) pickupMarker = L.marker(pickupCoords, {icon: redPinIcon}).addTo(map);
             else pickupMarker.setLatLng(pickupCoords);
@@ -387,17 +385,31 @@
                 userCurrentLng = pos.coords.longitude;
                 if (userRole === 'driver' && map) map.setView([userCurrentLat, userCurrentLng], 16);
                 renderRealtimeMarkers();
+                syncUserLocationToCloud();
             }, null, { enableHighAccuracy: true });
+        }
+    }
+
+    function syncUserLocationToCloud() {
+        if (userRole === 'penumpang' && window.db) {
+            const { doc, setDoc } = window.firebaseModules;
+            setDoc(doc(window.db, "passengers_online", myPassengerId), {
+                lat: userCurrentLat,
+                lng: userCurrentLng,
+                updatedAt: Date.now()
+            }, { merge: true }).catch(e => {});
         }
     }
 
     function renderRealtimeMarkers() {
         if (!map) return;
-        if (!driverLiveMarker) driverLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: driverMotorIcon, zIndexOffset: 1000 }).addTo(map);
-        else driverLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
-
-        if (!passengerLiveMarker) passengerLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: passengerBlueDotIcon, zIndexOffset: 900 }).addTo(map);
-        else passengerLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
+        if (userRole === 'driver') {
+            if (!driverLiveMarker) driverLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: driverMotorIcon, zIndexOffset: 1000 }).addTo(map);
+            else driverLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
+        } else {
+            if (!passengerLiveMarker) passengerLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: passengerBlueDotIcon, zIndexOffset: 900 }).addTo(map);
+            else passengerLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
+        }
     }
 
     function centerToMyLocation() { if (map) map.setView([userCurrentLat, userCurrentLng], 16); }
@@ -408,7 +420,6 @@
         const badgeText = document.getElementById('gpsStatusText');
         const badgeIcon = document.getElementById('gpsStatusIcon');
         
-        // Update Firebase status driver
         try {
             const { doc, setDoc } = window.firebaseModules;
             await setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true });
@@ -515,6 +526,7 @@
             mountMapToContainer('passengerMapWrapper');
             updatePassengerAppUI();
             renderPassengerHistory();
+            syncUserLocationToCloud();
         } else {
             document.getElementById('passengerView').style.display = 'none';
             document.getElementById('driverView').style.display = 'flex';
@@ -774,16 +786,24 @@
     }
 
     window.initializeIqBikeApp = function() {
-        const { doc, onSnapshot } = window.firebaseModules;
+        const { doc, onSnapshot, collection } = window.firebaseModules;
         
-        // Listen to active order changes
+        // Listen active order
         onSnapshot(doc(window.db, "orders", "active_order"), docSnap => {
             activeCloudOrder = docSnap.exists() ? docSnap.data() : null;
+            if (activeCloudOrder) {
+                pickupCoords = L.latLng(activeCloudOrder.pickupLat, activeCloudOrder.pickupLng);
+                dropoffCoords = L.latLng(activeCloudOrder.dropoffLat, activeCloudOrder.dropoffLng);
+                renderFixedMarkers();
+            } else {
+                pickupCoords = null; dropoffCoords = null;
+                renderFixedMarkers();
+            }
             updatePassengerAppUI();
             updateDriverAppUI();
         });
 
-        // Listen to driver online/offline global cloud status
+        // Listen driver status
         onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -803,6 +823,38 @@
                     }
                     updatePassengerAppUI();
                     updateDriverAppUI();
+                }
+            }
+        });
+
+        // Listen semua penumpang online secara real-time di peta driver
+        onSnapshot(collection(window.db, "passengers_online"), snapshot => {
+            if (userRole === 'driver' && map) {
+                const activeIds = new Set();
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const pId = docSnap.id;
+                    activeIds.add(pId);
+                    // Jangan tampilkan marker diri sendiri jika driver juga buka sebagai penumpang
+                    if (pId === myPassengerId) return;
+
+                    // Hapus jika sudah kedaluwarsa (> 30 detik tidak update)
+                    if (Date.now() - data.updatedAt > 30000) return;
+
+                    const latLng = [data.lat, data.lng];
+                    if (passengerCloudMarkers[pId]) {
+                        passengerCloudMarkers[pId].setLatLng(latLng);
+                    } else {
+                        passengerCloudMarkers[pId] = L.marker(latLng, { icon: passengerBlueDotIcon, zIndexOffset: 800 }).addTo(map);
+                    }
+                });
+
+                // Bersihkan marker penumpang yang sudah offline/tutup aplikasi
+                for (let pId in passengerCloudMarkers) {
+                    if (!activeIds.has(pId)) {
+                        map.removeLayer(passengerCloudMarkers[pId]);
+                        delete passengerCloudMarkers[pId];
+                    }
                 }
             }
         });
