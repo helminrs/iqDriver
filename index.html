@@ -83,7 +83,9 @@
         .btn-toggle-online { background: #27ae60; color: #fff; width: auto; padding: 4px 10px; font-size: 10px; margin: 0; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .btn-toggle-online.offline { background: #eb5757; }
 
-        .order-card-driver { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+        .order-card-driver { border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; background: #fff; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: popUpModal 0.3s ease-out; }
+        @keyframes popUpModal { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
         .btn-whatsapp, .driver-step-btn { width: 100%; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; color: #fff; }
         .btn-whatsapp { background-color: var(--whatsapp-green); }
         .btn-accept { background-color: var(--accent-blue); }
@@ -104,7 +106,7 @@
         .btn-repeat-order { flex: 1; background: #27ae60; color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
 
         .modal-detail-card { background: #fff; color: #222; width: 100%; max-width: 420px; max-height: 80vh; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: 0 -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
+        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 16px; box-shadow: 0 -8px 25px rgba(0,0,0,0.3); z-index: 1002; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--primary-green); }
         .mini-gps-badge { position: absolute; bottom: 16px; left: 16px; background: rgba(18, 18, 18, 0.85); color: #8cc63f; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; display: flex; align-items: center; gap: 6px; }
 
         .leaflet-div-icon { background: transparent; border: none; }
@@ -227,7 +229,7 @@
             <div id="driverMapContainer" class="map-wrapper-full"></div>
             <div class="mini-gps-badge"><i class="fa-solid fa-signal" id="gpsStatusIcon"></i> <span id="gpsStatusText">RADAR AKTIF</span></div>
             <div id="floatingRadarPanel" class="floating-radar-overlay" style="display:none;">
-                <div style="font-weight:bold; font-size:13px;"><i class="fa-solid fa-circle-dot" style="color:red;"></i> Orderan Masuk Cloud</div>
+                <div style="font-weight:bold; font-size:13px; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-circle-dot" style="color:red; animation: pulseRing 1.5s infinite;"></i> Orderan Masuk Cloud</div>
                 <div id="orderListContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
         </div>
@@ -383,7 +385,6 @@
     }
 
     function renderFixedMarkers() {
-        // Marker jemput & tujuan HANYA muncul jika ada order aktif, atau jika sedang mode set pin manual oleh penumpang
         if (!activeCloudOrder && userRole === 'driver') {
             if(pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
             if(dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
@@ -597,7 +598,7 @@
 
     async function handleMainActionButton() {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') {
-            window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent("Halo Driver, saya konfirmasi terkait jemputan.")}`;
+            window.location.href = `https://api.whatsapp.com/send?phone=${DRIVER_WA_PHONE}&text=` + encodeURIComponent("Halo Driver, saya konfirmasi terkait jemputan.");
             return;
         }
         await sendOrderToCloud();
@@ -632,7 +633,7 @@
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
         const waText = `Halo Driver iqBike, saya mau order ojek online:\n\n👤 Nama: ${name}\n📱 WA Penumpang: ${phone}\n📍 Jemput: ${pickup}\n🗺️ Link Titik Jemput: ${shareLocLink}\n🏁 Tujuan: ${dropoff}\n⏱️ Dijemput: Secepatnya / Instan\n💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n📝 Catatan: ${note}\n\nMohon konfirmasinya ya, terima kasih!`;
-        window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
+        window.location.href = `https://api.whatsapp.com/send?phone=${DRIVER_WA_PHONE}&text=` + encodeURIComponent(waText);
     }
 
     async function cancelActiveOrder() {
@@ -641,7 +642,7 @@
             await deleteDoc(doc(window.db, "orders", "active_order"));
             
             const cancelText = `Halo Driver iqBike, mohon maaf pesanan atas nama penumpang dibatalkan. Terima kasih.`;
-            window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(cancelText)}`;
+            window.location.href = `https://api.whatsapp.com/send?phone=${DRIVER_WA_PHONE}&text=` + encodeURIComponent(cancelText);
             resetAddressAndFare();
         }
     }
@@ -674,7 +675,7 @@
             if (status === 'HEADING_PICKUP' && activeCloudOrder) {
                 const driverShareLoc = `https://maps.google.com/?q=${userCurrentLat},${userCurrentLng}`;
                 const driverWaText = `Halo Kak ${activeCloudOrder.passengerName}, saya Driver iqBike yang akan menjemput Anda.\n\n📍 Lokasi Terkini Driver: ${driverShareLoc}\n\nSaya sedang menuju ke titik penjemputan. Mohon ditunggu ya Kak, terima kasih!`;
-                window.location.href = `whatsapp://send?phone=${activeCloudOrder.passengerPhone}&text=${encodeURIComponent(driverWaText)}`;
+                window.location.href = `https://api.whatsapp.com/send?phone=${activeCloudOrder.passengerPhone}&text=` + encodeURIComponent(driverWaText);
             }
         }
     }
@@ -684,7 +685,6 @@
         renderFinanceAndHistory();
     }
 
-    // Perbaikan total Auto-Fill Rute PP (Tukar rute asal dan tujuan)
     function swapRouteFromHistory(index) {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
@@ -704,7 +704,6 @@
         if (map && pickupCoords) map.setView(pickupCoords, 16);
     }
 
-    // Perbaikan total Auto-Fill Ulangi Pesanan
     function repeatOrderFromHistory(index) {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
@@ -838,7 +837,8 @@
             floatingPanel.style.display = 'none'; container.innerHTML = ''; return;
         }
 
-        if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
+        // Trigger getar kuat dan pop-up inDrive style
+        if (navigator.vibrate) { navigator.vibrate([400, 200, 400]); }
 
         floatingPanel.style.display = 'flex';
         let actionHTML = '';
@@ -856,9 +856,9 @@
 
         container.innerHTML = `
             <div class="order-card-driver">
-                <div><b>${activeCloudOrder.passengerName}</b> - <span style="color:#27ae60;">Rp ${activeCloudOrder.fare?.toLocaleString('id-ID')}</span></div>
-                <div style="font-size:11px; color:#555;">Jemput: ${activeCloudOrder.pickup}<br>Tujuan: ${activeCloudOrder.dropoff}</div>
-                <button class="btn-whatsapp" onclick="window.location.href='whatsapp://send?phone=${activeCloudOrder.passengerPhone}'">Hubungi Penumpang</button>
+                <div><b>${activeCloudOrder.passengerName}</b> - <span style="color:#27ae60; font-weight:bold;">Rp ${activeCloudOrder.fare?.toLocaleString('id-ID')}</span></div>
+                <div style="font-size:11px; color:#555; line-height:1.4;">Jemput: ${activeCloudOrder.pickup}<br>Tujuan: ${activeCloudOrder.dropoff}</div>
+                <button class="btn-whatsapp" onclick="window.location.href='https://api.whatsapp.com/send?phone=${activeCloudOrder.passengerPhone}'">Hubungi Penumpang</button>
                 ${actionHTML}
                 ${driverCancelHTML}
             </div>
@@ -883,7 +883,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi SEMUA Driver ke Peta Penumpang Secara Permanen Tanpa Hilang Saat Refresh
+        // Sinkronisasi Driver Permanen & Force Refresh Sync
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -949,8 +949,13 @@
     window.onload = () => {
         initMap();
         const role = localStorage.getItem('iqbike_saved_role');
-        if (role) selectUserRole(role);
-        else showLoginOverlay();
+        if (role) {
+            selectUserRole(role);
+            // Force sync location immediately after load to prevent icon disappearing on refresh
+            setTimeout(() => { syncUserLocationToCloud(); }, 1000);
+        } else {
+            showLoginOverlay();
+        }
     };
 </script>
 
