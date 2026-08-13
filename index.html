@@ -289,7 +289,6 @@
         localStorage.setItem('iqbike_my_passenger_id', myPassengerId);
     }
 
-    // ID Driver dibuat permanen agar tidak berubah-ubah saat halaman direfresh di 1 device
     let myDriverId = localStorage.getItem('iqbike_my_driver_id');
     if (!myDriverId) {
         myDriverId = 'driver_main_device';
@@ -384,6 +383,7 @@
     }
 
     function renderFixedMarkers() {
+        // Marker jemput & tujuan HANYA muncul jika ada order aktif, atau jika sedang mode set pin manual oleh penumpang
         if (!activeCloudOrder && userRole === 'driver') {
             if(pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
             if(dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
@@ -393,10 +393,15 @@
         if (pickupCoords) {
             if (!pickupMarker) pickupMarker = L.marker(pickupCoords, {icon: redPinIcon}).addTo(map);
             else pickupMarker.setLatLng(pickupCoords);
+        } else if (pickupMarker) {
+            map.removeLayer(pickupMarker); pickupMarker = null;
         }
+
         if (dropoffCoords) {
             if (!dropoffMarker) dropoffMarker = L.marker(dropoffCoords, {icon: finishFlagIcon}).addTo(map);
             else dropoffMarker.setLatLng(dropoffCoords);
+        } else if (dropoffMarker) {
+            map.removeLayer(dropoffMarker); dropoffMarker = null;
         }
     }
 
@@ -679,7 +684,7 @@
         renderFinanceAndHistory();
     }
 
-    // Auto-fill form dan peta secara otomatis saat Tukar Rute PP
+    // Perbaikan total Auto-Fill Rute PP (Tukar rute asal dan tujuan)
     function swapRouteFromHistory(index) {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
@@ -688,6 +693,7 @@
 
         document.getElementById('pickupLocation').value = item.dropoff;
         document.getElementById('dropoffLocation').value = item.pickup;
+        
         pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
         
@@ -698,7 +704,7 @@
         if (map && pickupCoords) map.setView(pickupCoords, 16);
     }
 
-    // Auto-fill form dan peta secara otomatis saat Ulangi Pesanan
+    // Perbaikan total Auto-Fill Ulangi Pesanan
     function repeatOrderFromHistory(index) {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
@@ -707,6 +713,7 @@
 
         document.getElementById('pickupLocation').value = item.pickup;
         document.getElementById('dropoffLocation').value = item.dropoff;
+        
         pickupCoords = L.latLng(item.pickupLat, item.pickupLng);
         dropoffCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         
