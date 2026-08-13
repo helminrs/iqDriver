@@ -195,7 +195,7 @@
             <div id="driverStatusBox" class="status-box status-online"><i class="fa-solid fa-circle"></i> Driver Online & Siap</div>
             <div class="form-row-2cols">
                 <div class="form-group"><label class="form-label">Nama</label><input type="text" id="passengerName" class="form-input" placeholder="Nama Anda"></div>
-                <div class="form-group"><label class="form-label">No WhatsApp</label><input type="tel" id="passengerPhone" class="form-input" placeholder="0812xxxx"></div>
+                <div class="form-group"><label class="form-label">No WhatsApp</label><input type="tel" id="passengerPhone" class="form-input" placeholder="62812xxxx"></div>
             </div>
             <div class="pin-mode-selector">
                 <button id="btnModeJemput" class="btn-pin-mode" onclick="togglePinMode('jemput')"><i class="fa-solid fa-location-dot"></i> Set JEMPUT</button>
@@ -591,6 +591,7 @@
 
     async function handleMainActionButton() {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') {
+            const phone = document.getElementById('passengerPhone').value.trim() || DRIVER_WA_PHONE;
             window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent("Halo Driver, saya konfirmasi terkait jemputan.")}`;
             return;
         }
@@ -623,7 +624,8 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        const waText = `Halo Driver iqBike, saya order ojek:\n👤 Nama: ${name}\n📍 Jemput: ${pickup}\n🏁 Tujuan: ${dropoff}\n💰 Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}`;
+        // Langsung arahkan ke WhatsApp Driver secara otomatis seperti sedia kala
+        const waText = `Halo Driver iqBike, saya order ojek:\n👤 Nama: ${name}\n📱 No WA: ${phone}\n📍 Jemput: ${pickup}\n🏁 Tujuan: ${dropoff}\n💰 Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n📝 Catatan: ${note}`;
         window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
     }
 
@@ -771,7 +773,6 @@
         const statusBox = document.getElementById('driverStatusBox');
         if (!statusBox) return;
 
-        // Status bar langsung merespons cache lokal terlebih dahulu agar tidak memunculkan teks "Memuat..." saat refresh
         if (isDriverOnline) {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
@@ -846,7 +847,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi SEMUA Driver ke Peta Penumpang Secara Instan & Permanen
+        // Sinkronisasi Global SEMUA Driver ke Peta Penumpang
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -882,7 +883,7 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // Sinkronisasi SEMUA Penumpang ke Peta Driver (Multi-device support)
+        // Sinkronisasi Global SEMUA Penumpang ke Peta Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
