@@ -64,7 +64,6 @@
         .status-offline { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
         .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
         .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
-        .status-busy { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
 
         .form-row-2cols { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; flex-shrink: 0; }
         .form-group { display: flex; flex-direction: column; gap: 2px; position: relative; flex-shrink: 0; }
@@ -110,6 +109,9 @@
         .modal-detail-card { background: #fff; color: #222; width: 100%; max-width: 420px; max-height: 80vh; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
         .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: 0 -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
         .mini-gps-badge { position: absolute; bottom: 16px; left: 16px; background: rgba(18, 18, 18, 0.85); color: #8cc63f; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; display: flex; align-items: center; gap: 6px; }
+
+        /* Custom Professional Map Markers (Clean Transparent Background) */
+        .leaflet-div-icon { background: transparent; border: none; }
     </style>
 </head>
 <body>
@@ -217,7 +219,7 @@
         <div id="driverView" class="driver-view-container" style="display: none;">
             <div class="finance-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:11px; color:#aaa;">KEUANGAN</span>
+                    <span style="font-size:11px; color:#aaa;">KEUANGAN & STATUS</span>
                     <button id="btnToggleOnline" class="btn-toggle-online" onclick="toggleDriverOnlineStatus()">ONLINE</button>
                 </div>
                 <div class="finance-grid-3cols">
@@ -281,10 +283,35 @@
     let isDriverOnline = true;
     let searchDebounce = null, reverseGeocodeTimeout = null;
 
-    const redPinIcon = L.divIcon({ html: '<i class="fa-solid fa-location-dot" style="font-size:26px; color:#eb5757;"></i>', iconSize: [26,26], iconAnchor: [13,26] });
-    const finishFlagIcon = L.divIcon({ html: '<i class="fa-solid fa-flag-checkered" style="font-size:22px; color:#111; background:#fff; padding:2px; border-radius:50%;"></i>', iconSize: [24,24], iconAnchor: [12,12] });
-    const driverMotorIcon = L.divIcon({ html: '<i class="fa-solid fa-motorcycle" style="font-size:12px; color:#fff; background:#27ae60; padding:6px; border-radius:50%;"></i>', iconSize: [28,28], iconAnchor: [14,14] });
-    const passengerBlueDotIcon = L.divIcon({ html: '<i class="fa-solid fa-circle" style="font-size:14px; color:#0288d1; background:#ffffff; padding:3px; border-radius:50%; border:2px solid #0288d1;"></i>', iconSize: [22,22], iconAnchor: [11,11] });
+    // Professional Markers Style (Transparent background, clean shadow drop)
+    const redPinIcon = L.divIcon({ 
+        html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
+        iconSize: [30,30], 
+        iconAnchor: [15,30],
+        className: 'custom-leaflet-icon'
+    });
+
+    const finishFlagIcon = L.divIcon({ 
+        html: '<div style="background:#222; color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-flag-checkered" style="font-size:12px;"></i></div>', 
+        iconSize: [28,28], 
+        iconAnchor: [14,14],
+        className: 'custom-leaflet-icon'
+    });
+
+    const driverMotorIcon = L.divIcon({ 
+        html: '<div style="background:#27ae60; color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:13px;"></i></div>', 
+        iconSize: [30,30], 
+        iconAnchor: [15,15],
+        className: 'custom-leaflet-icon'
+    });
+
+    // GO-JEK/GRAB STYLE: Passenger large blue pulse dot with white center inner circle
+    const passengerBlueDotIcon = L.divIcon({ 
+        html: '<div style="position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center;"><div style="position:absolute; width:34px; height:34px; background:rgba(2,136,209,0.25); border-radius:50%; animation: pulseRing 2s infinite;"></div><div style="width:18px; height:18px; background:#0288d1; border:3px solid #ffffff; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3); z-index:2;"></div></div>', 
+        iconSize: [34,34], 
+        iconAnchor: [17,17],
+        className: 'custom-leaflet-icon'
+    });
 
     function initMap() {
         const masterEl = document.getElementById('masterMapElement');
@@ -375,11 +402,18 @@
 
     function centerToMyLocation() { if (map) map.setView([userCurrentLat, userCurrentLng], 16); }
 
-    function toggleDriverOnlineStatus() {
+    async function toggleDriverOnlineStatus() {
         isDriverOnline = !isDriverOnline;
         const btn = document.getElementById('btnToggleOnline');
         const badgeText = document.getElementById('gpsStatusText');
         const badgeIcon = document.getElementById('gpsStatusIcon');
+        
+        // Update Firebase status driver
+        try {
+            const { doc, setDoc } = window.firebaseModules;
+            await setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true });
+        } catch(e) {}
+
         if (isDriverOnline) {
             btn.innerText = "ONLINE"; btn.className = "btn-toggle-online";
             badgeText.innerText = "CLOUD RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
@@ -678,16 +712,16 @@
 
         if (!isDriverOnline) {
             statusBox.className = "status-box status-offline";
-            statusBox.innerHTML = `Driver Offline`;
+            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline`;
             btnSend.disabled = true; btnSend.style.background = "#ccc";
             return;
         } else {
+            statusBox.className = "status-box status-online";
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
             btnSend.disabled = false; btnSend.style.background = "var(--whatsapp-green)";
         }
 
         if (!activeCloudOrder) {
-            statusBox.className = "status-box status-online";
-            statusBox.innerHTML = `Driver Online & Siap`;
             btnSend.style.display = 'flex'; btnCancel.style.display = 'none';
             return;
         }
@@ -741,10 +775,36 @@
 
     window.initializeIqBikeApp = function() {
         const { doc, onSnapshot } = window.firebaseModules;
+        
+        // Listen to active order changes
         onSnapshot(doc(window.db, "orders", "active_order"), docSnap => {
             activeCloudOrder = docSnap.exists() ? docSnap.data() : null;
             updatePassengerAppUI();
             updateDriverAppUI();
+        });
+
+        // Listen to driver online/offline global cloud status
+        onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (typeof data.online === 'boolean') {
+                    isDriverOnline = data.online;
+                    const btn = document.getElementById('btnToggleOnline');
+                    const badgeText = document.getElementById('gpsStatusText');
+                    const badgeIcon = document.getElementById('gpsStatusIcon');
+                    if (btn) {
+                        if (isDriverOnline) {
+                            btn.innerText = "ONLINE"; btn.className = "btn-toggle-online";
+                            badgeText.innerText = "CLOUD RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
+                        } else {
+                            btn.innerText = "OFFLINE"; btn.className = "btn-toggle-online offline";
+                            badgeText.innerText = "DRIVER OFFLINE"; badgeIcon.style.color = "#eb5757";
+                        }
+                    }
+                    updatePassengerAppUI();
+                    updateDriverAppUI();
+                }
+            }
         });
     };
 
