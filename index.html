@@ -283,7 +283,7 @@
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
     const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
-    const fixedDriverId = 'main_driver_fixed'; // ID tetap agar sinkron antar device
+    const fixedDriverId = 'main_driver_fixed';
 
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
@@ -407,9 +407,12 @@
                 lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         } else if (userRole === 'driver') {
+            // Gabungkan status online dan koordinat dalam 1 dokumen terpusat agar langsung sinkron global
             setDoc(doc(window.db, "drivers_online", fixedDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
+            
+            setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true }).catch(e => {});
         }
     }
 
@@ -834,7 +837,7 @@
             updateDriverAppUI();
         });
 
-        // 2. Listen Driver Status Global (Sinkron Antar HP)
+        // 2. Listen Driver Status Global (Sinkron Antar HP secara Instan)
         onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -848,7 +851,7 @@
             }
         });
 
-        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver muncul & bergerak real-time di HP penumpang)
+        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver SELALU MUNCUL & bergerak real-time, baik online maupun offline)
         onSnapshot(doc(window.db, "drivers_online", fixedDriverId), docSnap => {
             if (userRole === 'penumpang' && map) {
                 if (docSnap.exists()) {
