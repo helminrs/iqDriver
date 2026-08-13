@@ -275,15 +275,26 @@
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
     let passengerCloudMarkers = {};
-    let cloudDriverLiveMarker = null;
+    let driverCloudMarkers = {}; // Menyimpan semua ikon driver lain di peta penumpang secara multi-device
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
-    const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
-    const fixedDriverId = 'main_driver_fixed';
+    
+    // Setiap perangkat memiliki ID unik tersendiri untuk penumpang maupun driver
+    let myPassengerId = localStorage.getItem('iqbike_my_passenger_id');
+    if (!myPassengerId) {
+        myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('iqbike_my_passenger_id', myPassengerId);
+    }
+
+    let myDriverId = localStorage.getItem('iqbike_my_driver_id');
+    if (!myDriverId) {
+        myDriverId = 'driver_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('iqbike_my_driver_id', myDriverId);
+    }
 
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
@@ -297,6 +308,11 @@
 
     const driverMotorIcon = L.divIcon({ 
         html: '<div style="background:#27ae60; color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:11px;"></i></div>', 
+        iconSize: [26,26], iconAnchor: [13,13], className: 'custom-leaflet-icon'
+    });
+
+    const driverOfflineMotorIcon = L.divIcon({ 
+        html: '<div style="background:#999; color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:11px;"></i></div>', 
         iconSize: [26,26], iconAnchor: [13,13], className: 'custom-leaflet-icon'
     });
 
@@ -407,8 +423,8 @@
                 lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         } else if (userRole === 'driver') {
-            // Simpan status dan koordinat ke dokumen tunggal pusat agar langsung terbaca global
-            setDoc(doc(window.db, "drivers_online", fixedDriverId), {
+            // Mengirim data posisi unik milik driver ini ke collection cloud multi-driver
+            setDoc(doc(window.db, "drivers_online", myDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         }
@@ -435,7 +451,7 @@
         
         try {
             const { doc, setDoc } = window.firebaseModules;
-            await setDoc(doc(window.db, "drivers_online", fixedDriverId), {
+            await setDoc(doc(window.db, "drivers_online", myDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true });
         } catch(e) {}
@@ -587,7 +603,6 @@
         if (!pickup || !pickupCoords || !dropoff || !dropoffCoords || !name || !phone) {
             alert("Harap lengkapi semua data dan tentukan titik peta!"); return;
         }
-        if (!isDriverOnline) { alert("Driver sedang Offline!"); return; }
 
         const newOrder = {
             id: Date.now(), passengerName: name, passengerPhone: phone,
@@ -753,15 +768,15 @@
         const btnSend = document.getElementById('btnSendOrder');
         const btnCancel = document.getElementById('btnCancelOrder');
 
-        if (!isDriverOnline) {
+        // Status di penumpang memeriksa apakah ada minimal 1 driver aktif online di sekitar
+        let anyDriverOnline = Object.values(window.allDriversData || {}).some(d => d.online && (Date.now() - d.updatedAt < 40000));
+
+        if (!anyDriverOnline) {
             statusBox.className = "status-box status-offline";
             statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline`;
-            btnSend.disabled = true; btnSend.style.background = "#ccc";
-            return;
         } else {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
-            btnSend.disabled = false; btnSend.style.background = "var(--whatsapp-green)";
         }
 
         if (!activeCloudOrder) {
@@ -818,6 +833,7 @@
 
     window.initializeIqBikeApp = function() {
         const { doc, onSnapshot, collection } = window.firebaseModules;
+        window.allDriversData = {};
         
         // 1. Listen Active Order
         onSnapshot(doc(window.db, "orders", "active_order"), docSnap => {
@@ -834,42 +850,54 @@
             updateDriverAppUI();
         });
 
-        // 2. Listen Global Driver Data (Posisi & Status Online/Offline langsung sinkron global antar HP)
-        onSnapshot(doc(window.db, "drivers_online", fixedDriverId), docSnap => {
-            if (docSnap.exists()) {
+        // 2. Listen SEMUA Driver Online / Offline di Cloud (Multi-Driver System)
+        onSnapshot(collection(window.db, "drivers_online"), snapshot => {
+            const activeDriverIds = new Set();
+            snapshot.forEach(docSnap => {
                 const data = docSnap.data();
-                const latLng = [data.lat, data.lng];
-                
-                // Update status global driver
-                if (typeof data.online === 'boolean') {
-                    isDriverOnline = data.online;
-                    localStorage.setItem('iqbike_driver_online_state', isDriverOnline);
-                    if (userRole === 'driver') applyDriverOnlineUIState();
-                    updatePassengerAppUI();
-                }
+                const dId = docSnap.id;
+                activeDriverIds.add(dId);
+                window.allDriversData[dId] = data;
 
-                // Render atau update ikon driver secara real-time di HP Penumpang
+                // Jika kita di mode penumpang, tampilkan semua ikon driver di peta
                 if (userRole === 'penumpang' && map) {
-                    if (cloudDriverLiveMarker) {
-                        cloudDriverLiveMarker.setLatLng(latLng);
+                    if (Date.now() - data.updatedAt > 60000) return; // Abaikan jika mati > 60 detik
+
+                    const latLng = [data.lat, data.lng];
+                    // Pilih ikon hijau jika driver online, atau abu-abu jika offline tapi masih buka aplikasi
+                    const chosenIcon = data.online ? driverMotorIcon : driverOfflineMotorIcon;
+
+                    if (driverCloudMarkers[dId]) {
+                        driverCloudMarkers[dId].setLatLng(latLng);
+                        driverCloudMarkers[dId].setIcon(chosenIcon);
                     } else {
-                        cloudDriverLiveMarker = L.marker(latLng, { icon: driverMotorIcon, zIndexOffset: 950 }).addTo(map);
+                        driverCloudMarkers[dId] = L.marker(latLng, { icon: chosenIcon, zIndexOffset: 950 }).addTo(map);
                     }
                 }
+            });
+
+            // Hapus ikon driver dari peta jika mereka sudah menutup aplikasi
+            for (let dId in driverCloudMarkers) {
+                if (!activeDriverIds.has(dId)) {
+                    map.removeLayer(driverCloudMarkers[dId]);
+                    delete driverCloudMarkers[dId];
+                }
             }
+
+            if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // 3. Listen Live Penumpang di HP Driver
+        // 3. Listen SEMUA Penumpang di HP Driver (Driver melihat titik-titik penumpang di sekitarnya)
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
-                const activeIds = new Set();
+                const activePassengerIds = new Set();
                 snapshot.forEach(docSnap => {
                     const data = docSnap.data();
                     const pId = docSnap.id;
-                    activeIds.add(pId);
+                    activePassengerIds.add(pId);
                     if (pId === myPassengerId) return;
 
-                    if (Date.now() - data.updatedAt > 30000) return;
+                    if (Date.now() - data.updatedAt > 40000) return;
 
                     const latLng = [data.lat, data.lng];
                     if (passengerCloudMarkers[pId]) {
@@ -880,7 +908,7 @@
                 });
 
                 for (let pId in passengerCloudMarkers) {
-                    if (!activeIds.has(pId)) {
+                    if (!activePassengerIds.has(pId)) {
                         map.removeLayer(passengerCloudMarkers[pId]);
                         delete passengerCloudMarkers[pId];
                     }
