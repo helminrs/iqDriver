@@ -192,7 +192,7 @@
 
     <main class="content-area">
         <div id="passengerView" class="passenger-view-container" style="display: none;">
-            <div id="driverStatusBox" class="status-box status-online"><i class="fa-solid fa-circle"></i> Memeriksa Status Driver...</div>
+            <div id="driverStatusBox" class="status-box status-online"><i class="fa-solid fa-circle"></i> Driver Online & Siap</div>
             <div class="form-row-2cols">
                 <div class="form-group"><label class="form-label">Nama</label><input type="text" id="passengerName" class="form-input" placeholder="Nama Anda"></div>
                 <div class="form-group"><label class="form-label">No WhatsApp</label><input type="tel" id="passengerPhone" class="form-input" placeholder="0812xxxx"></div>
@@ -279,7 +279,6 @@
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
-    // Status driver di-load permanen dari LocalStorage
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
@@ -301,7 +300,6 @@
         iconSize: [30,30], iconAnchor: [15,30], className: 'custom-leaflet-icon'
     });
 
-    // Ikon bendera tanpa background kotak putih, kembali seperti semula
     const finishFlagIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-flag-checkered" style="font-size:26px; color:#222222;"></i></div>', 
         iconSize: [26,26], iconAnchor: [13,26], className: 'custom-leaflet-icon'
@@ -348,15 +346,12 @@
             alert("🔒 Lokasi Penjemputan terkunci karena pesanan aktif!"); return;
         }
         currentPinMode = mode;
-        
-        // Membedakan ikon tengah saat geser peta (Jemput = Pin Merah, Tujuan = Bendera Hitam)
         const pinIconEl = document.getElementById('centerPinIcon');
         if (mode === 'jemput') {
             pinIconEl.innerHTML = '<i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>';
         } else {
             pinIconEl.innerHTML = '<i class="fa-solid fa-flag-checkered" style="color:#222222;"></i>';
         }
-
         document.getElementById('centerPinContainer').style.display = 'flex';
         document.getElementById('btnConfirmLocation').style.display = 'flex';
         handleMapCenterChange(map.getCenter());
@@ -776,32 +771,13 @@
         const statusBox = document.getElementById('driverStatusBox');
         if (!statusBox) return;
 
-        let onlineDriverInRange = false;
-        const passengerLatLng = L.latLng(userCurrentLat, userCurrentLng);
-
-        const driversArray = Object.values(window.allDriversData || {});
-        if (driversArray.length === 0) {
-            statusBox.className = "status-box status-offline";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Memuat Data Driver...`;
-            return;
-        }
-
-        driversArray.forEach(d => {
-            if (d.online) {
-                const driverLatLng = L.latLng(d.lat, d.lng);
-                const distanceMeters = passengerLatLng.distanceTo(driverLatLng);
-                if (distanceMeters <= 10000) { // Radius 10 KM
-                    onlineDriverInRange = true;
-                }
-            }
-        });
-
-        if (!onlineDriverInRange) {
-            statusBox.className = "status-box status-offline";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline / Di Luar Radius`;
-        } else {
+        // Status bar langsung merespons cache lokal terlebih dahulu agar tidak memunculkan teks "Memuat..." saat refresh
+        if (isDriverOnline) {
             statusBox.className = "status-box status-online";
             statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
+        } else {
+            statusBox.className = "status-box status-offline";
+            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Driver Sedang Offline / Di Luar Radius`;
         }
 
         if (activeCloudOrder) {
@@ -870,7 +846,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi SEMUA Driver ke Peta Penumpang secara permanen tanpa terhapus saat refresh
+        // Sinkronisasi SEMUA Driver ke Peta Penumpang Secara Instan & Permanen
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -906,7 +882,7 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // Sinkronisasi SEMUA Penumpang ke Peta Driver (Multi-device support sempurna)
+        // Sinkronisasi SEMUA Penumpang ke Peta Driver (Multi-device support)
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
