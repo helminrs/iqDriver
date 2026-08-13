@@ -279,7 +279,7 @@
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
-    // Status online driver dipertahankan stabil dengan default true
+    // Status driver di-load permanen dari LocalStorage
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
@@ -766,12 +766,12 @@
         const statusBox = document.getElementById('driverStatusBox');
         if (!statusBox) return;
 
-        // Cek apakah ada driver online dalam radius 10 km (10000 meter) dari posisi penumpang
+        // Cek apakah ada driver online DALAM radius 10 km dari penumpang
         let onlineDriverInRange = false;
         const passengerLatLng = L.latLng(userCurrentLat, userCurrentLng);
 
         Object.values(window.allDriversData || {}).forEach(d => {
-            if (d.online && (Date.now() - d.updatedAt < 45000)) {
+            if (d.online) {
                 const driverLatLng = L.latLng(d.lat, d.lng);
                 const distanceMeters = passengerLatLng.distanceTo(driverLatLng);
                 if (distanceMeters <= 10000) { // Radius 10 KM
@@ -854,7 +854,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi Real-Time Multi-Driver dan Statusnya ke Semua HP (Tanpa menimpa state lokal saat refresh)
+        // 1. Sinkronisasi SEMUA Driver ke Peta Penumpang (Tanpa Timeout Batas Waktu agar Ikon Driver TIDAK PERNAH HILANG saat refresh)
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -863,16 +863,12 @@
                 activeDriverIds.add(dId);
                 window.allDriversData[dId] = data;
 
-                // Jika perangkat ini bertindak sebagai driver, sinkronkan tombol UI dengan local storage yang aman
                 if (dId === myDriverId && userRole === 'driver') {
-                    // Biarkan status driver mengikuti localStorage yang di-klik user tanpa dipaksa balik oleh cloud saat refresh awal
                     applyDriverOnlineUIState();
                 }
 
-                // Render ikon driver di peta penumpang (hijau jika online, abu-abu jika offline tapi buka aplikasi)
+                // Jika di mode penumpang, tampilkan ikon driver (Hijau jika online, Abu-abu jika offline tapi buka aplikasi)
                 if (userRole === 'penumpang' && map) {
-                    if (Date.now() - data.updatedAt > 60000) return;
-
                     const latLng = [data.lat, data.lng];
                     const chosenIcon = data.online ? driverMotorIcon : driverOfflineMotorIcon;
 
@@ -885,6 +881,7 @@
                 }
             });
 
+            // Hanya hapus jika driver benar-benar menutup total aplikasi (dokumen cloud dihapus/tidak aktif)
             for (let dId in driverCloudMarkers) {
                 if (!activeDriverIds.has(dId)) {
                     map.removeLayer(driverCloudMarkers[dId]);
@@ -895,6 +892,7 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
+        // 2. Sinkronisasi SEMUA Penumpang ke Peta Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
@@ -903,8 +901,6 @@
                     const pId = docSnap.id;
                     activePassengerIds.add(pId);
                     if (pId === myPassengerId) return;
-
-                    if (Date.now() - data.updatedAt > 40000) return;
 
                     const latLng = [data.lat, data.lng];
                     if (passengerCloudMarkers[pId]) {
