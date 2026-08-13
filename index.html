@@ -122,7 +122,7 @@
             gap: 6px;
         }
 
-        .btn-header-pin, .btn-switch-role {
+        .btn-switch-role {
             background: #2a2a2a;
             color: var(--primary-green);
             border: 1px solid #444;
@@ -266,9 +266,9 @@
             flex-shrink: 0;
         }
         .status-online { background-color: #eef7e8; color: #2e7d32; border: 1px solid #c8e6b8; }
+        .status-offline { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
         .status-busy { background-color: #fbeae8; color: #eb5757; border: 1px solid #f7c6c2; }
         .status-process { background-color: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
-        .status-arrived { background-color: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
 
         .form-row-2cols { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; flex-shrink: 0; }
         .form-group { display: flex; flex-direction: column; gap: 2px; position: relative; flex-shrink: 0; }
@@ -291,13 +291,15 @@
         .search-item:hover { background-color: #f4f5f7; }
 
         .fare-card { background: #f8f9fa; border: 1px dashed var(--primary-green); padding: 6px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-        .btn-reset, .btn-cancel, .btn-submit, .btn-history-toggle {
+        .btn-reset, .btn-cancel, .btn-submit, .btn-history-toggle, .btn-toggle-online {
             width: 100%; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; border: none;
         }
         .btn-reset { background: #fff; color: var(--accent-red); border: 1px solid var(--accent-red); }
         .btn-cancel { background: #eb5757; color: #fff; }
         .btn-submit { background: var(--whatsapp-green); color: #fff; }
         .btn-history-toggle { background: #f0f2f5; color: #333; border: 1px solid #ccc; }
+        .btn-toggle-online { background: #27ae60; color: #fff; margin-bottom: 4px; }
+        .btn-toggle-online.offline { background: #eb5757; }
 
         .order-card-driver { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
         .btn-whatsapp, .btn-nav-gmaps, .driver-step-btn {
@@ -313,15 +315,9 @@
 
         .finance-card { background: #121212; color: white; padding: 10px 12px; border-radius: 0 0 12px 12px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
         .finance-grid-3cols { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 6px; background: #1e1e1e; padding: 8px; border-radius: 8px; text-align: center; align-items: center; }
-        .clickable-finance-box { cursor: pointer; padding: 6px 4px; border-radius: 6px; background: #282828; }
         .net-income-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; border-left: 1px solid #333; border-right: 1px solid #333; }
-        .filter-select { padding: 4px 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: white; font-size: 10px; font-weight: bold; outline: none; }
         
         .history-card { border: 1px solid #e0e0e0; padding: 10px; border-radius: 8px; font-size: 12px; background: #fafafa; display: flex; flex-direction: column; gap: 4px; }
-        .history-action-row { display: flex; gap: 6px; margin-top: 4px; }
-        .btn-swap-route { flex: 1; background: #0288d1; color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
-        .btn-repeat-order { flex: 1; background: #27ae60; color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
-
         .modal-detail-card { background: #fff; color: #222; width: 100%; max-width: 420px; max-height: 80vh; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
         .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: 0 -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
         .mini-gps-badge { position: absolute; bottom: 16px; left: 16px; background: rgba(18, 18, 18, 0.85); color: #8cc63f; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; display: flex; align-items: center; gap: 6px; }
@@ -336,7 +332,7 @@
         <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Pilih peran Anda untuk melanjutkan</p>
         <div class="login-card">
             <button class="role-btn role-passenger" onclick="selectUserRole('penumpang')"><i class="fa-solid fa-user"></i> Masuk Sebagai PENUMPANG</button>
-            <button class="role-btn role-driver" onclick="openDriverPinModal()"><i class="fa-solid id-card"></i> Masuk Sebagai DRIVER</button>
+            <button class="role-btn role-driver" onclick="openDriverPinModal()"><i class="fa-solid fa-id-card"></i> Masuk Sebagai DRIVER</button>
         </div>
     </div>
 
@@ -391,7 +387,10 @@
 
         <div id="driverView" class="driver-view-container" style="display: none;">
             <div class="finance-card">
-                <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#aaa;">KEUANGAN</span></div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:11px; color:#aaa;">KEUANGAN</span>
+                    <button id="btnToggleOnline" class="btn-toggle-online" onclick="toggleDriverOnlineStatus()" style="width:auto; padding:4px 10px; font-size:10px; margin:0;">ONLINE</button>
+                </div>
                 <div class="finance-grid-3cols">
                     <div><div style="color:#aaa; font-size:10px;">Masuk</div><div style="color:#27ae60; font-weight:bold; font-size:12px;" id="grossIncomeText">Rp 0</div></div>
                     <div class="net-income-box"><div style="color:#aaa; font-size:9px;">BERSIH</div><div style="font-size:14px; font-weight:bold; color:var(--primary-green);" id="netIncomeText">Rp 0</div></div>
@@ -399,7 +398,7 @@
                 </div>
             </div>
             <div id="driverMapContainer" class="map-wrapper-full"></div>
-            <div class="mini-gps-badge"><i class="fa-solid fa-signal"></i> CLOUD RADAR AKTIF</div>
+            <div class="mini-gps-badge"><i class="fa-solid fa-signal" id="gpsStatusIcon"></i> <span id="gpsStatusText">CLOUD RADAR AKTIF</span></div>
             <div id="floatingRadarPanel" class="floating-radar-overlay" style="display:none;">
                 <div style="font-weight:bold; font-size:13px;"><i class="fa-solid fa-circle-dot" style="color:red;"></i> Orderan Masuk Cloud</div>
                 <div id="orderListContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
@@ -445,13 +444,16 @@
     const DRIVER_WA_PHONE = "6285934602965";
     let map, currentPinMode = null;
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
+    let driverLiveMarker = null, passengerLiveMarker = null;
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
+    let isDriverOnline = true; // Status online/offline driver secara manual
     let searchDebounce = null;
 
     const redPinIcon = L.divIcon({ html: '<i class="fa-solid fa-location-dot" style="font-size:26px; color:#eb5757;"></i>', iconSize: [26,26], iconAnchor: [13,26] });
     const finishFlagIcon = L.divIcon({ html: '<i class="fa-solid fa-flag-checkered" style="font-size:22px; color:#111; background:#fff; padding:2px; border-radius:50%;"></i>', iconSize: [24,24], iconAnchor: [12,12] });
-    const driverMotorIcon = L.divIcon({ html: '<i class="fa-solid fa-motorcycle" style="font-size:12px; color:#fff; background:#27ae60; padding:5px; border-radius:50%;"></i>', iconSize: [24,24], iconAnchor: [12,12] });
+    const driverMotorIcon = L.divIcon({ html: '<i class="fa-solid fa-motorcycle" style="font-size:12px; color:#fff; background:#27ae60; padding:6px; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.4);"></i>', iconSize: [28,28], iconAnchor: [14,14], className: 'driver-motor-icon' });
+    const passengerBlueDotIcon = L.divIcon({ html: '<i class="fa-solid fa-circle" style="font-size:14px; color:#0288d1; background:#ffffff; padding:3px; border-radius:50%; border:2px solid #0288d1; box-shadow:0 2px 6px rgba(0,0,0,0.4);"></i>', iconSize: [22,22], iconAnchor: [11,11], className: 'passenger-blue-icon' });
 
     function initMap() {
         const masterEl = document.getElementById('masterMapElement');
@@ -470,7 +472,9 @@
         const target = document.getElementById(containerId);
         if (target && masterEl) {
             target.appendChild(masterEl);
-            setTimeout(() => map.invalidateSize(), 200);
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 200);
         }
     }
 
@@ -520,13 +524,58 @@
     function startLiveGps() {
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(pos => {
-                userCurrentLat = pos.coords.latitude; userCurrentLng = pos.coords.longitude;
-                if (userRole === 'driver' && map) map.setView([userCurrentLat, userCurrentLng], 16);
+                userCurrentLat = pos.coords.latitude; 
+                userCurrentLng = pos.coords.longitude;
+
+                if (userRole === 'driver' && map) {
+                    map.setView([userCurrentLat, userCurrentLng], 16);
+                }
+
+                renderRealtimeMarkers();
             }, null, { enableHighAccuracy: true });
         }
     }
 
-    function centerToMyLocation() { map.setView([userCurrentLat, userCurrentLng], 16); }
+    function renderRealtimeMarkers() {
+        if (!map) return;
+
+        // Render ikon driver motor di peta
+        if (!driverLiveMarker) {
+            driverLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: driverMotorIcon, zIndexOffset: 1000 }).addTo(map);
+        } else {
+            driverLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
+        }
+
+        // Render titik biru penumpang di peta
+        if (!passengerLiveMarker) {
+            passengerLiveMarker = L.marker([userCurrentLat, userCurrentLng], { icon: passengerBlueDotIcon, zIndexOffset: 900 }).addTo(map);
+        } else {
+            passengerLiveMarker.setLatLng([userCurrentLat, userCurrentLng]);
+        }
+    }
+
+    function centerToMyLocation() { 
+        if (map) map.setView([userCurrentLat, userCurrentLng], 16); 
+    }
+
+    function toggleDriverOnlineStatus() {
+        isDriverOnline = !isDriverOnline;
+        const btn = document.getElementById('btnToggleOnline');
+        const badgeText = document.getElementById('gpsStatusText');
+        const badgeIcon = document.getElementById('gpsStatusIcon');
+
+        if (isDriverOnline) {
+            btn.innerText = "ONLINE";
+            btn.className = "btn-toggle-online";
+            badgeText.innerText = "CLOUD RADAR AKTIF";
+            badgeIcon.style.color = "#8cc63f";
+        } else {
+            btn.innerText = "OFFLINE";
+            btn.className = "btn-toggle-online offline";
+            badgeText.innerText = "DRIVER OFFLINE (TIDAK TERIMA ORDER)";
+            badgeIcon.style.color = "#eb5757";
+        }
+    }
 
     function handleSearchOrPaste(type) {
         const inputId = type === 'jemput' ? 'pickupLocation' : 'dropoffLocation';
@@ -597,6 +646,7 @@
             updateDriverAppUI();
             renderFinance();
         }
+        setTimeout(() => { if (map) map.invalidateSize(); }, 250);
     }
 
     async function sendOrderToCloud() {
@@ -608,6 +658,11 @@
 
         if (!pickup || !pickupCoords || !dropoff || !dropoffCoords || !name || !phone) {
             alert("Harap lengkapi semua data dan tentukan titik peta!"); return;
+        }
+
+        if (!isDriverOnline) {
+            alert("Maaf, saat ini Driver sedang Offline / tidak menerima pesanan.");
+            return;
         }
 
         const newOrder = {
@@ -656,9 +711,20 @@
         const btnSend = document.getElementById('btnSendOrder');
         const btnCancel = document.getElementById('btnCancelOrder');
 
+        if (!isDriverOnline) {
+            statusBox.className = "status-box status-offline";
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Sedang OFFLINE`;
+            btnSend.disabled = true;
+            btnSend.style.background = "#ccc";
+            return;
+        } else {
+            btnSend.disabled = false;
+            btnSend.style.background = "var(--whatsapp-green)";
+        }
+
         if (!activeCloudOrder) {
             statusBox.className = "status-box status-online";
-            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Cloud Driver Online`;
+            statusBox.innerHTML = `<i class="fa-solid fa-circle"></i> Driver Online & Siap`;
             btnSend.style.display = 'flex'; btnCancel.style.display = 'none';
             return;
         }
@@ -682,7 +748,7 @@
         const container = document.getElementById('orderListContainer');
         const floatingPanel = document.getElementById('floatingRadarPanel');
 
-        if (!activeCloudOrder) {
+        if (!activeCloudOrder || !isDriverOnline) {
             floatingPanel.style.display = 'none'; container.innerHTML = ''; return;
         }
 
