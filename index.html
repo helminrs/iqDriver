@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iqBike - Cloud Firebase InDrive Style</title>
+    <title>iqBike - InDrive Style</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -183,7 +183,7 @@
     </div>
 
     <header class="header">
-        <div class="brand-title"><i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i> <span>iqBike Cloud</span></div>
+        <div class="brand-title"><i class="fa-solid fa-motorcycle" style="color: var(--primary-green);"></i> <span>iqBike</span></div>
         <div class="header-actions">
             <button id="btnHeaderPin" class="btn-header-pin" onclick="changeDriverPinDirect()" style="display:none;"><i class="fa-solid fa-key"></i> Ubah PIN</button>
             <button class="btn-switch-role" onclick="showLoginOverlay()"><span id="currentRoleText">Ganti Mode</span></button>
@@ -225,7 +225,7 @@
                 </div>
             </div>
             <div id="driverMapContainer" class="map-wrapper-full"></div>
-            <div class="mini-gps-badge"><i class="fa-solid fa-signal" id="gpsStatusIcon"></i> <span id="gpsStatusText">CLOUD RADAR AKTIF</span></div>
+            <div class="mini-gps-badge"><i class="fa-solid fa-signal" id="gpsStatusIcon"></i> <span id="gpsStatusText">RADAR AKTIF</span></div>
             <div id="floatingRadarPanel" class="floating-radar-overlay" style="display:none;">
                 <div style="font-weight:bold; font-size:13px;"><i class="fa-solid fa-circle-dot" style="color:red;"></i> Orderan Masuk Cloud</div>
                 <div id="orderListContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
@@ -275,12 +275,14 @@
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
     let passengerCloudMarkers = {};
+    let cloudDriverLiveMarker = null;
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     let isDriverOnline = true;
-    let hasCenteredOnce = false; // Flag agar peta langsung auto-center sekali di awal saat GPS pertama didapat
+    let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
     const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
+    const myDriverId = 'd_' + Math.random().toString(36).substring(2, 9);
 
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
@@ -381,7 +383,6 @@
                 userCurrentLat = pos.coords.latitude; 
                 userCurrentLng = pos.coords.longitude;
                 
-                // Peta otomatis auto-center ke lokasi terkini saat sinyal GPS pertama didapat/direfresh
                 if (map && !hasCenteredOnce) {
                     map.setView([userCurrentLat, userCurrentLng], 16);
                     hasCenteredOnce = true;
@@ -398,12 +399,15 @@
     }
 
     function syncUserLocationToCloud() {
-        if (userRole === 'penumpang' && window.db) {
-            const { doc, setDoc } = window.firebaseModules;
+        if (!window.db) return;
+        const { doc, setDoc } = window.firebaseModules;
+        if (userRole === 'penumpang') {
             setDoc(doc(window.db, "passengers_online", myPassengerId), {
-                lat: userCurrentLat,
-                lng: userCurrentLng,
-                updatedAt: Date.now()
+                lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
+            }, { merge: true }).catch(e => {});
+        } else if (userRole === 'driver') {
+            setDoc(doc(window.db, "drivers_online", myDriverId), {
+                lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         }
     }
@@ -432,11 +436,15 @@
         try {
             const { doc, setDoc } = window.firebaseModules;
             await setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true });
+            // Sync status online/offline ke cloud driver live
+            await setDoc(doc(window.db, "drivers_online", myDriverId), {
+                lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
+            }, { merge: true });
         } catch(e) {}
 
         if (isDriverOnline) {
             btn.innerText = "ONLINE"; btn.className = "btn-toggle-online";
-            badgeText.innerText = "CLOUD RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
+            badgeText.innerText = "RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
         } else {
             btn.innerText = "OFFLINE"; btn.className = "btn-toggle-online offline";
             badgeText.innerText = "DRIVER OFFLINE"; badgeIcon.style.color = "#eb5757";
@@ -529,7 +537,7 @@
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('currentRoleText').innerText = role === 'penumpang' ? 'Mode: Penumpang' : 'Mode: Driver';
         
-        hasCenteredOnce = false; // Reset agar saat ganti mode peta langsung re-center ke lokasi GPS
+        hasCenteredOnce = false;
 
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
@@ -546,6 +554,7 @@
             mountMapToContainer('driverMapContainer');
             updateDriverAppUI();
             renderFinanceAndHistory();
+            syncUserLocationToCloud();
         }
         setTimeout(() => { if (map) map.invalidateSize(); }, 250);
     }
@@ -800,6 +809,7 @@
     window.initializeIqBikeApp = function() {
         const { doc, onSnapshot, collection } = window.firebaseModules;
         
+        // 1. Listen Active Order
         onSnapshot(doc(window.db, "orders", "active_order"), docSnap => {
             activeCloudOrder = docSnap.exists() ? docSnap.data() : null;
             if (activeCloudOrder) {
@@ -814,6 +824,7 @@
             updateDriverAppUI();
         });
 
+        // 2. Listen Driver Status Global (Online/Offline)
         onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -825,7 +836,7 @@
                     if (btn) {
                         if (isDriverOnline) {
                             btn.innerText = "ONLINE"; btn.className = "btn-toggle-online";
-                            badgeText.innerText = "CLOUD RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
+                            badgeText.innerText = "RADAR AKTIF"; badgeIcon.style.color = "#8cc63f";
                         } else {
                             btn.innerText = "OFFLINE"; btn.className = "btn-toggle-online offline";
                             badgeText.innerText = "DRIVER OFFLINE"; badgeIcon.style.color = "#eb5757";
@@ -837,6 +848,22 @@
             }
         });
 
+        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver tetap terlihat walau offline, selama driver buka aplikasi)
+        onSnapshot(collection(window.db, "drivers_online"), snapshot => {
+            if (userRole === 'penumpang' && map) {
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const latLng = [data.lat, data.lng];
+                    if (cloudDriverLiveMarker) {
+                        cloudDriverLiveMarker.setLatLng(latLng);
+                    } else {
+                        cloudDriverLiveMarker = L.marker(latLng, { icon: driverMotorIcon, zIndexOffset: 950 }).addTo(map);
+                    }
+                });
+            }
+        });
+
+        // 4. Listen Live Penumpang di HP Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activeIds = new Set();
