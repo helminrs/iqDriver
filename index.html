@@ -279,13 +279,11 @@
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
-    // Status driver disimpan secara persisten di localStorage agar tidak berubah sendiri saat direfresh
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
-    
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
     const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
-    const myDriverId = 'd_' + Math.random().toString(36).substring(2, 9);
+    const fixedDriverId = 'main_driver_fixed'; // ID tetap agar sinkron antar device
 
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
@@ -409,7 +407,7 @@
                 lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         } else if (userRole === 'driver') {
-            setDoc(doc(window.db, "drivers_online", myDriverId), {
+            setDoc(doc(window.db, "drivers_online", fixedDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         }
@@ -434,14 +432,10 @@
         isDriverOnline = !isDriverOnline;
         localStorage.setItem('iqbike_driver_online_state', isDriverOnline);
         
-        const btn = document.getElementById('btnToggleOnline');
-        const badgeText = document.getElementById('gpsStatusText');
-        const badgeIcon = document.getElementById('gpsStatusIcon');
-        
         try {
             const { doc, setDoc } = window.firebaseModules;
             await setDoc(doc(window.db, "driver_status", "main_driver"), { online: isDriverOnline }, { merge: true });
-            await setDoc(doc(window.db, "drivers_online", myDriverId), {
+            await setDoc(doc(window.db, "drivers_online", fixedDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true });
         } catch(e) {}
@@ -840,7 +834,7 @@
             updateDriverAppUI();
         });
 
-        // 2. Listen Driver Status Global
+        // 2. Listen Driver Status Global (Sinkron Antar HP)
         onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -854,10 +848,10 @@
             }
         });
 
-        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver selalu tampil real-time walau driver offline)
-        onSnapshot(collection(window.db, "drivers_online"), snapshot => {
+        // 3. Listen Live Driver Location di HP Penumpang (Ikon motor driver muncul & bergerak real-time di HP penumpang)
+        onSnapshot(doc(window.db, "drivers_online", fixedDriverId), docSnap => {
             if (userRole === 'penumpang' && map) {
-                snapshot.forEach(docSnap => {
+                if (docSnap.exists()) {
                     const data = docSnap.data();
                     const latLng = [data.lat, data.lng];
                     if (cloudDriverLiveMarker) {
@@ -865,7 +859,7 @@
                     } else {
                         cloudDriverLiveMarker = L.marker(latLng, { icon: driverMotorIcon, zIndexOffset: 950 }).addTo(map);
                     }
-                });
+                }
             }
         });
 
