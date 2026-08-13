@@ -289,9 +289,10 @@
         localStorage.setItem('iqbike_my_passenger_id', myPassengerId);
     }
 
+    // ID Driver dibuat permanen agar tidak berubah-ubah saat halaman direfresh di 1 device
     let myDriverId = localStorage.getItem('iqbike_my_driver_id');
     if (!myDriverId) {
-        myDriverId = 'driver_' + Math.random().toString(36).substring(2, 9);
+        myDriverId = 'driver_main_device';
         localStorage.setItem('iqbike_my_driver_id', myDriverId);
     }
 
@@ -591,7 +592,6 @@
 
     async function handleMainActionButton() {
         if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') {
-            const phone = document.getElementById('passengerPhone').value.trim() || DRIVER_WA_PHONE;
             window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent("Halo Driver, saya konfirmasi terkait jemputan.")}`;
             return;
         }
@@ -626,7 +626,6 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        // Format lengkap seperti semula dengan shareloc terkini
         const waText = `Halo Driver iqBike, saya mau order ojek online:\n\n👤 Nama: ${name}\n📱 WA Penumpang: ${phone}\n📍 Jemput: ${pickup}\n🗺️ Link Titik Jemput: ${shareLocLink}\n🏁 Tujuan: ${dropoff}\n⏱️ Dijemput: Secepatnya / Instan\n💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n📝 Catatan: ${note}\n\nMohon konfirmasinya ya, terima kasih!`;
         window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
     }
@@ -667,7 +666,6 @@
             const { doc, updateDoc } = window.firebaseModules;
             await updateDoc(doc(window.db, "orders", "active_order"), { status });
 
-            // Jika driver konfirmasi/terima pesanan, format pesan WhatsApp khusus driver dikirim ke penumpang
             if (status === 'HEADING_PICKUP' && activeCloudOrder) {
                 const driverShareLoc = `https://maps.google.com/?q=${userCurrentLat},${userCurrentLng}`;
                 const driverWaText = `Halo Kak ${activeCloudOrder.passengerName}, saya Driver iqBike yang akan menjemput Anda.\n\n📍 Lokasi Terkini Driver: ${driverShareLoc}\n\nSaya sedang menuju ke titik penjemputan. Mohon ditunggu ya Kak, terima kasih!`;
@@ -681,8 +679,9 @@
         renderFinanceAndHistory();
     }
 
+    // Auto-fill form dan peta secara otomatis saat Tukar Rute PP
     function swapRouteFromHistory(index) {
-        if (activeCloudOrder) { alert("Ada order aktif!"); return; }
+        if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
         const item = history[index];
         if(!item) return;
@@ -691,13 +690,17 @@
         document.getElementById('dropoffLocation').value = item.pickup;
         pickupCoords = L.latLng(item.dropoffLat, item.dropoffLng);
         dropoffCoords = L.latLng(item.pickupLat, item.pickupLng);
+        
         closePassengerHistoryModal();
         renderFixedMarkers();
         calculateFare();
+        
+        if (map && pickupCoords) map.setView(pickupCoords, 16);
     }
 
+    // Auto-fill form dan peta secara otomatis saat Ulangi Pesanan
     function repeatOrderFromHistory(index) {
-        if (activeCloudOrder) { alert("Ada order aktif!"); return; }
+        if (activeCloudOrder && activeCloudOrder.status !== 'WAITING') { alert("Ada order aktif!"); return; }
         const history = JSON.parse(localStorage.getItem('iqbike_passenger_history') || '[]');
         const item = history[index];
         if(!item) return;
@@ -706,9 +709,12 @@
         document.getElementById('dropoffLocation').value = item.dropoff;
         pickupCoords = L.latLng(item.pickupLat, item.pickupLng);
         dropoffCoords = L.latLng(item.dropoffLat, item.dropoffLng);
+        
         closePassengerHistoryModal();
         renderFixedMarkers();
         calculateFare();
+        
+        if (map && pickupCoords) map.setView(pickupCoords, 16);
     }
 
     function renderPassengerHistory() {
@@ -825,7 +831,6 @@
             floatingPanel.style.display = 'none'; container.innerHTML = ''; return;
         }
 
-        // Efek getar dan pop-up inDrive style saat ada order masuk di driver
         if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
 
         floatingPanel.style.display = 'flex';
@@ -871,7 +876,7 @@
             updateDriverAppUI();
         });
 
-        // Sinkronisasi Global SEMUA Driver ke Peta Penumpang
+        // Sinkronisasi SEMUA Driver ke Peta Penumpang Secara Permanen Tanpa Hilang Saat Refresh
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -907,7 +912,6 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // Sinkronisasi Global SEMUA Penumpang ke Peta Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
