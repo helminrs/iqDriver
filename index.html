@@ -104,7 +104,7 @@
         .btn-repeat-order { flex: 1; background: #27ae60; color: white; border: none; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
 
         .modal-detail-card { background: #fff; color: #222; width: 100%; max-width: 420px; max-height: 80vh; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
+        .floating-radar-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 18px 18px 0 0; padding: 14px; box-shadow: 0 -5px 20px rgba(0,0,0,0.25); z-index: 1002; display: flex; flex-direction: column; gap: 8px; }
         .mini-gps-badge { position: absolute; bottom: 16px; left: 16px; background: rgba(18, 18, 18, 0.85); color: #8cc63f; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; display: flex; align-items: center; gap: 6px; }
 
         .leaflet-div-icon { background: transparent; border: none; }
@@ -274,14 +274,14 @@
     let map, currentPinMode = null;
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
-    let passengerCloudMarkers = {}; // Menyimpan marker live semua penumpang online
+    let passengerCloudMarkers = {};
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     let isDriverOnline = true;
+    let hasCenteredOnce = false; // Flag agar peta langsung auto-center sekali di awal saat GPS pertama didapat
     let searchDebounce = null, reverseGeocodeTimeout = null;
     const myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
 
-    // Marker styling: Ukuran penumpang lebih besar dan mendominasi daripada icon driver
     const redPinIcon = L.divIcon({ 
         html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-location-dot" style="font-size:30px; color:#eb5757;"></i></div>', 
         iconSize: [30,30], iconAnchor: [15,30], className: 'custom-leaflet-icon'
@@ -292,13 +292,11 @@
         iconSize: [28,28], iconAnchor: [14,14], className: 'custom-leaflet-icon'
     });
 
-    // Icon motor driver proporsional & lebih kecil dibanding titik biru penumpang
     const driverMotorIcon = L.divIcon({ 
         html: '<div style="background:#27ae60; color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-motorcycle" style="font-size:11px;"></i></div>', 
         iconSize: [26,26], iconAnchor: [13,13], className: 'custom-leaflet-icon'
     });
 
-    // Icon titik biru penumpang (BESAR & dominan dengan titik putih di tengah khas InDrive/Gojek)
     const passengerBlueDotIcon = L.divIcon({ 
         html: '<div style="position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center;"><div style="position:absolute; width:38px; height:38px; background:rgba(2,136,209,0.3); border-radius:50%; animation: pulseRing 2s infinite;"></div><div style="width:20px; height:20px; background:#0288d1; border:3px solid #ffffff; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:2;"></div></div>', 
         iconSize: [38,38], iconAnchor: [19,19], className: 'custom-leaflet-icon'
@@ -361,7 +359,6 @@
     }
 
     function renderFixedMarkers() {
-        // Hapus pin & bendera jika belum ada order aktif atau sedang tidak mode set lokasi
         if (!activeCloudOrder && userRole === 'driver') {
             if(pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
             if(dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
@@ -383,7 +380,17 @@
             navigator.geolocation.watchPosition(pos => {
                 userCurrentLat = pos.coords.latitude; 
                 userCurrentLng = pos.coords.longitude;
-                if (userRole === 'driver' && map) map.setView([userCurrentLat, userCurrentLng], 16);
+                
+                // Peta otomatis auto-center ke lokasi terkini saat sinyal GPS pertama didapat/direfresh
+                if (map && !hasCenteredOnce) {
+                    map.setView([userCurrentLat, userCurrentLng], 16);
+                    hasCenteredOnce = true;
+                }
+
+                if (userRole === 'driver' && map) {
+                    map.setView([userCurrentLat, userCurrentLng], 16);
+                }
+
                 renderRealtimeMarkers();
                 syncUserLocationToCloud();
             }, null, { enableHighAccuracy: true });
@@ -412,7 +419,9 @@
         }
     }
 
-    function centerToMyLocation() { if (map) map.setView([userCurrentLat, userCurrentLng], 16); }
+    function centerToMyLocation() { 
+        if (map) map.setView([userCurrentLat, userCurrentLng], 16); 
+    }
 
     async function toggleDriverOnlineStatus() {
         isDriverOnline = !isDriverOnline;
@@ -519,6 +528,9 @@
         localStorage.setItem('iqbike_saved_role', role);
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('currentRoleText').innerText = role === 'penumpang' ? 'Mode: Penumpang' : 'Mode: Driver';
+        
+        hasCenteredOnce = false; // Reset agar saat ganti mode peta langsung re-center ke lokasi GPS
+
         if (role === 'penumpang') {
             document.getElementById('passengerView').style.display = 'flex';
             document.getElementById('driverView').style.display = 'none';
@@ -788,7 +800,6 @@
     window.initializeIqBikeApp = function() {
         const { doc, onSnapshot, collection } = window.firebaseModules;
         
-        // Listen active order
         onSnapshot(doc(window.db, "orders", "active_order"), docSnap => {
             activeCloudOrder = docSnap.exists() ? docSnap.data() : null;
             if (activeCloudOrder) {
@@ -803,7 +814,6 @@
             updateDriverAppUI();
         });
 
-        // Listen driver status
         onSnapshot(doc(window.db, "driver_status", "main_driver"), docSnap => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -827,7 +837,6 @@
             }
         });
 
-        // Listen semua penumpang online secara real-time di peta driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activeIds = new Set();
@@ -835,10 +844,8 @@
                     const data = docSnap.data();
                     const pId = docSnap.id;
                     activeIds.add(pId);
-                    // Jangan tampilkan marker diri sendiri jika driver juga buka sebagai penumpang
                     if (pId === myPassengerId) return;
 
-                    // Hapus jika sudah kedaluwarsa (> 30 detik tidak update)
                     if (Date.now() - data.updatedAt > 30000) return;
 
                     const latLng = [data.lat, data.lng];
@@ -849,7 +856,6 @@
                     }
                 });
 
-                // Bersihkan marker penumpang yang sudah offline/tutup aplikasi
                 for (let pId in passengerCloudMarkers) {
                     if (!activeIds.has(pId)) {
                         map.removeLayer(passengerCloudMarkers[pId]);
