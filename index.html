@@ -301,9 +301,10 @@
         iconSize: [30,30], iconAnchor: [15,30], className: 'custom-leaflet-icon'
     });
 
+    // Ikon bendera tanpa background kotak putih, kembali seperti semula
     const finishFlagIcon = L.divIcon({ 
-        html: '<div style="background:#222; color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:2px solid #fff;"><i class="fa-solid fa-flag-checkered" style="font-size:12px;"></i></div>', 
-        iconSize: [28,28], iconAnchor: [14,14], className: 'custom-leaflet-icon'
+        html: '<div style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));"><i class="fa-solid fa-flag-checkered" style="font-size:26px; color:#222222;"></i></div>', 
+        iconSize: [26,26], iconAnchor: [13,26], className: 'custom-leaflet-icon'
     });
 
     const driverMotorIcon = L.divIcon({ 
@@ -347,6 +348,15 @@
             alert("🔒 Lokasi Penjemputan terkunci karena pesanan aktif!"); return;
         }
         currentPinMode = mode;
+        
+        // Membedakan ikon tengah saat geser peta (Jemput = Pin Merah, Tujuan = Bendera Hitam)
+        const pinIconEl = document.getElementById('centerPinIcon');
+        if (mode === 'jemput') {
+            pinIconEl.innerHTML = '<i class="fa-solid fa-location-dot" style="color:#eb5757;"></i>';
+        } else {
+            pinIconEl.innerHTML = '<i class="fa-solid fa-flag-checkered" style="color:#222222;"></i>';
+        }
+
         document.getElementById('centerPinContainer').style.display = 'flex';
         document.getElementById('btnConfirmLocation').style.display = 'flex';
         handleMapCenterChange(map.getCenter());
@@ -766,11 +776,17 @@
         const statusBox = document.getElementById('driverStatusBox');
         if (!statusBox) return;
 
-        // Cek apakah ada driver online DALAM radius 10 km dari penumpang
         let onlineDriverInRange = false;
         const passengerLatLng = L.latLng(userCurrentLat, userCurrentLng);
 
-        Object.values(window.allDriversData || {}).forEach(d => {
+        const driversArray = Object.values(window.allDriversData || {});
+        if (driversArray.length === 0) {
+            statusBox.className = "status-box status-offline";
+            statusBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Memuat Data Driver...`;
+            return;
+        }
+
+        driversArray.forEach(d => {
             if (d.online) {
                 const driverLatLng = L.latLng(d.lat, d.lng);
                 const distanceMeters = passengerLatLng.distanceTo(driverLatLng);
@@ -854,7 +870,7 @@
             updateDriverAppUI();
         });
 
-        // 1. Sinkronisasi SEMUA Driver ke Peta Penumpang (Tanpa Timeout Batas Waktu agar Ikon Driver TIDAK PERNAH HILANG saat refresh)
+        // Sinkronisasi SEMUA Driver ke Peta Penumpang secara permanen tanpa terhapus saat refresh
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -867,7 +883,6 @@
                     applyDriverOnlineUIState();
                 }
 
-                // Jika di mode penumpang, tampilkan ikon driver (Hijau jika online, Abu-abu jika offline tapi buka aplikasi)
                 if (userRole === 'penumpang' && map) {
                     const latLng = [data.lat, data.lng];
                     const chosenIcon = data.online ? driverMotorIcon : driverOfflineMotorIcon;
@@ -881,7 +896,6 @@
                 }
             });
 
-            // Hanya hapus jika driver benar-benar menutup total aplikasi (dokumen cloud dihapus/tidak aktif)
             for (let dId in driverCloudMarkers) {
                 if (!activeDriverIds.has(dId)) {
                     map.removeLayer(driverCloudMarkers[dId]);
@@ -892,7 +906,7 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // 2. Sinkronisasi SEMUA Penumpang ke Peta Driver
+        // Sinkronisasi SEMUA Penumpang ke Peta Driver (Multi-device support sempurna)
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
