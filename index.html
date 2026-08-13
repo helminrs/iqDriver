@@ -207,7 +207,7 @@
             <div class="form-group"><label class="form-label">Catatan</label><input type="text" id="passengerNote" class="form-input" placeholder="Catatan driver..."></div>
             <div class="fare-card">Estimasi Ongkos: <span id="fareText" style="color: var(--primary-green-hover);">Rp 0</span></div>
             <button id="btnSendOrder" class="btn-submit" onclick="handleMainActionButton()"><i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver</button>
-            <button id="btnCancelOrder" class="btn-cancel" onclick="cancelActiveOrder()" style="display:none;"><i class="fa-solid fa-xmark"></i> Batalkan Pesanan</button>
+            <button id="btnCancelOrder" class="btn-cancel" onclick="cancelActiveOrder()" style="display:none;"><i class="fa-solid fa-xmark"></i> Batalkan Pesanan (Konfirmasi WA)</button>
             <button class="btn-reset" onclick="resetAddressAndFare()"><i class="fa-solid fa-rotate-left"></i> Reset Rute</button>
             <button class="btn-history-toggle" onclick="openPassengerHistoryModal()"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Perjalanan & Tukar Rute PP</button>
         </div>
@@ -609,6 +609,8 @@
             alert("Harap lengkapi semua data dan tentukan titik peta!"); return;
         }
 
+        const shareLocLink = `https://maps.google.com/?q=${pickupCoords.lat},${pickupCoords.lng}`;
+
         const newOrder = {
             id: Date.now(), passengerName: name, passengerPhone: phone,
             pickup, dropoff, pickupLat: pickupCoords.lat, pickupLng: pickupCoords.lng,
@@ -624,15 +626,18 @@
         passHistory.unshift(newOrder);
         localStorage.setItem('iqbike_passenger_history', JSON.stringify(passHistory));
 
-        // Langsung arahkan ke WhatsApp Driver secara otomatis seperti sedia kala
-        const waText = `Halo Driver iqBike, saya order ojek:\n👤 Nama: ${name}\n📱 No WA: ${phone}\n📍 Jemput: ${pickup}\n🏁 Tujuan: ${dropoff}\n💰 Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n📝 Catatan: ${note}`;
+        // Format lengkap seperti semula dengan shareloc terkini
+        const waText = `Halo Driver iqBike, saya mau order ojek online:\n\n👤 Nama: ${name}\n📱 WA Penumpang: ${phone}\n📍 Jemput: ${pickup}\n🗺️ Link Titik Jemput: ${shareLocLink}\n🏁 Tujuan: ${dropoff}\n⏱️ Dijemput: Secepatnya / Instan\n💰 Estimasi Ongkos: Rp ${computedTotalFare.toLocaleString('id-ID')}\n📝 Catatan: ${note}\n\nMohon konfirmasinya ya, terima kasih!`;
         window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(waText)}`;
     }
 
     async function cancelActiveOrder() {
-        if (confirm("Batalkan pesanan aktif?")) {
+        if (confirm("Yakin ingin membatalkan pesanan? Sesuai ketentuan, mohon konfirmasi pembatalan kepada driver via WhatsApp.")) {
             const { doc, deleteDoc } = window.firebaseModules;
             await deleteDoc(doc(window.db, "orders", "active_order"));
+            
+            const cancelText = `Halo Driver iqBike, mohon maaf pesanan atas nama penumpang dibatalkan. Terima kasih.`;
+            window.location.href = `whatsapp://send?phone=${DRIVER_WA_PHONE}&text=${encodeURIComponent(cancelText)}`;
             resetAddressAndFare();
         }
     }
@@ -661,6 +666,13 @@
         } else {
             const { doc, updateDoc } = window.firebaseModules;
             await updateDoc(doc(window.db, "orders", "active_order"), { status });
+
+            // Jika driver konfirmasi/terima pesanan, format pesan WhatsApp khusus driver dikirim ke penumpang
+            if (status === 'HEADING_PICKUP' && activeCloudOrder) {
+                const driverShareLoc = `https://maps.google.com/?q=${userCurrentLat},${userCurrentLng}`;
+                const driverWaText = `Halo Kak ${activeCloudOrder.passengerName}, saya Driver iqBike yang akan menjemput Anda.\n\n📍 Lokasi Terkini Driver: ${driverShareLoc}\n\nSaya sedang menuju ke titik penjemputan. Mohon ditunggu ya Kak, terima kasih!`;
+                window.location.href = `whatsapp://send?phone=${activeCloudOrder.passengerPhone}&text=${encodeURIComponent(driverWaText)}`;
+            }
         }
     }
 
@@ -771,6 +783,8 @@
 
     function updatePassengerAppUI() {
         const statusBox = document.getElementById('driverStatusBox');
+        const btnSend = document.getElementById('btnSendOrder');
+        const btnCancel = document.getElementById('btnCancelOrder');
         if (!statusBox) return;
 
         if (isDriverOnline) {
@@ -789,9 +803,16 @@
 
             if (activeCloudOrder.status === 'WAITING') {
                 statusBox.innerHTML = `Menunggu konfirmasi driver...`;
+                btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Konfirmasi Ulang ke Driver`;
+                btnCancel.style.display = 'flex';
             } else {
-                statusBox.innerHTML = `Status: ${activeCloudOrder.status}`;
+                statusBox.innerHTML = `Status Pesanan: ${activeCloudOrder.status}`;
+                btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Chat Driver`;
+                btnCancel.style.display = 'flex';
             }
+        } else {
+            btnSend.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Kirim Pesan Orderan ke Driver`;
+            btnCancel.style.display = 'none';
         }
     }
 
@@ -803,6 +824,9 @@
         if (!activeCloudOrder || !isDriverOnline) {
             floatingPanel.style.display = 'none'; container.innerHTML = ''; return;
         }
+
+        // Efek getar dan pop-up inDrive style saat ada order masuk di driver
+        if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
 
         floatingPanel.style.display = 'flex';
         let actionHTML = '';
