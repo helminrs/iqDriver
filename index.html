@@ -275,21 +275,22 @@
     let pickupCoords = null, dropoffCoords = null, pickupMarker = null, dropoffMarker = null;
     let driverLiveMarker = null, passengerLiveMarker = null;
     let passengerCloudMarkers = {};
-    let driverCloudMarkers = {}; // Menyimpan semua ikon driver lain di peta penumpang secara multi-device
+    let driverCloudMarkers = {};
     let userCurrentLat = -7.02443, userCurrentLng = 107.58556;
     let userRole = null, computedTotalFare = 0, activeCloudOrder = null;
     
+    // Status online driver disimpan tetap di localStorage perangkat ini agar konsisten
     let isDriverOnline = localStorage.getItem('iqbike_driver_online_state') !== 'false';
     let hasCenteredOnce = false;
     let searchDebounce = null, reverseGeocodeTimeout = null;
     
-    // Setiap perangkat memiliki ID unik tersendiri untuk penumpang maupun driver
     let myPassengerId = localStorage.getItem('iqbike_my_passenger_id');
     if (!myPassengerId) {
         myPassengerId = 'p_' + Math.random().toString(36).substring(2, 9);
         localStorage.setItem('iqbike_my_passenger_id', myPassengerId);
     }
 
+    // ID Driver dipatenkan tetap per perangkat menggunakan LocalStorage agar tidak berubah-ubah saat refresh
     let myDriverId = localStorage.getItem('iqbike_my_driver_id');
     if (!myDriverId) {
         myDriverId = 'driver_' + Math.random().toString(36).substring(2, 9);
@@ -423,7 +424,7 @@
                 lat: userCurrentLat, lng: userCurrentLng, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
         } else if (userRole === 'driver') {
-            // Mengirim data posisi unik milik driver ini ke collection cloud multi-driver
+            // Sinkronisasi status online/offline dan posisi GPS ke dokumen cloud driver mandiri
             setDoc(doc(window.db, "drivers_online", myDriverId), {
                 lat: userCurrentLat, lng: userCurrentLng, online: isDriverOnline, updatedAt: Date.now()
             }, { merge: true }).catch(e => {});
@@ -768,8 +769,8 @@
         const btnSend = document.getElementById('btnSendOrder');
         const btnCancel = document.getElementById('btnCancelOrder');
 
-        // Status di penumpang memeriksa apakah ada minimal 1 driver aktif online di sekitar
-        let anyDriverOnline = Object.values(window.allDriversData || {}).some(d => d.online && (Date.now() - d.updatedAt < 40000));
+        // Pengecekan apakah ada setidaknya satu driver yang online di cloud
+        let anyDriverOnline = Object.values(window.allDriversData || {}).some(d => d.online && (Date.now() - d.updatedAt < 45000));
 
         if (!anyDriverOnline) {
             statusBox.className = "status-box status-offline";
@@ -850,7 +851,7 @@
             updateDriverAppUI();
         });
 
-        // 2. Listen SEMUA Driver Online / Offline di Cloud (Multi-Driver System)
+        // 2. Listen Semua Driver di Cloud (Menampilkan ikon driver online & offline secara real-time di peta penumpang)
         onSnapshot(collection(window.db, "drivers_online"), snapshot => {
             const activeDriverIds = new Set();
             snapshot.forEach(docSnap => {
@@ -859,12 +860,11 @@
                 activeDriverIds.add(dId);
                 window.allDriversData[dId] = data;
 
-                // Jika kita di mode penumpang, tampilkan semua ikon driver di peta
                 if (userRole === 'penumpang' && map) {
-                    if (Date.now() - data.updatedAt > 60000) return; // Abaikan jika mati > 60 detik
+                    if (Date.now() - data.updatedAt > 60000) return;
 
                     const latLng = [data.lat, data.lng];
-                    // Pilih ikon hijau jika driver online, atau abu-abu jika offline tapi masih buka aplikasi
+                    // Jika driver online warna hijau, jika sedang buka aplikasi tapi offline warna abu-abu
                     const chosenIcon = data.online ? driverMotorIcon : driverOfflineMotorIcon;
 
                     if (driverCloudMarkers[dId]) {
@@ -876,7 +876,6 @@
                 }
             });
 
-            // Hapus ikon driver dari peta jika mereka sudah menutup aplikasi
             for (let dId in driverCloudMarkers) {
                 if (!activeDriverIds.has(dId)) {
                     map.removeLayer(driverCloudMarkers[dId]);
@@ -887,7 +886,7 @@
             if (userRole === 'penumpang') updatePassengerAppUI();
         });
 
-        // 3. Listen SEMUA Penumpang di HP Driver (Driver melihat titik-titik penumpang di sekitarnya)
+        // 3. Listen Penumpang di HP Driver
         onSnapshot(collection(window.db, "passengers_online"), snapshot => {
             if (userRole === 'driver' && map) {
                 const activePassengerIds = new Set();
