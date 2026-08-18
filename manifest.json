@@ -1,15 +1,16 @@
 {
-  "name": "IqBike Driver",
-  "short_name": "IqBike",
-  "start_url": "/iqDriver/index.html",
+  "name": "iqBike Driver",
+  "short_name": "iqDriver",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#121212",
+  "background_color": "#ffffff",
   "theme_color": "#8cc63f",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
